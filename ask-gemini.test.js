@@ -6,6 +6,7 @@ const {
   captureVoicePrompt,
   TERMUX_SPEECH_TO_TEXT_COMMAND,
   confirmPromptWithUser,
+  runVoiceFlow,
   GEMINI_MODEL_NAME,
 } = require("./ask-gemini.js");
 
@@ -146,4 +147,51 @@ test("confirmPromptWithUser resolves false on empty input", async () => {
   const confirmed = await confirmPromptWithUser("what's 2+2", fakeReadLine);
 
   assert.equal(confirmed, false);
+});
+
+test("runVoiceFlow sends the confirmed transcript to Gemini and displays the reply", async () => {
+  const recordedGeminiCalls = [];
+  const recordedDisplayCalls = [];
+  const fakeGeminiClient = {
+    models: {
+      generateContent: async (request) => {
+        recordedGeminiCalls.push(request);
+        return { text: "It's sunny." };
+      },
+    },
+  };
+
+  await runVoiceFlow(fakeGeminiClient, {
+    captureVoicePromptFn: async () => "what's the weather",
+    confirmPromptWithUserFn: async () => true,
+    displayResultToUserFn: async (text) => {
+      recordedDisplayCalls.push(text);
+    },
+  });
+
+  assert.equal(recordedGeminiCalls.length, 1);
+  assert.equal(recordedGeminiCalls[0].contents, "what's the weather");
+  assert.deepEqual(recordedDisplayCalls, ["It's sunny."]);
+});
+
+test("runVoiceFlow does not call Gemini when the user does not confirm", async () => {
+  const recordedGeminiCalls = [];
+  const fakeGeminiClient = {
+    models: {
+      generateContent: async (request) => {
+        recordedGeminiCalls.push(request);
+        return { text: "should not be reached" };
+      },
+    },
+  };
+
+  await runVoiceFlow(fakeGeminiClient, {
+    captureVoicePromptFn: async () => "what's the weather",
+    confirmPromptWithUserFn: async () => false,
+    displayResultToUserFn: async () => {
+      throw new Error("displayResultToUserFn should not be called");
+    },
+  });
+
+  assert.equal(recordedGeminiCalls.length, 0);
 });

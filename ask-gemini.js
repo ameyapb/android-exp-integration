@@ -23,6 +23,7 @@ const TERMUX_NOTIFICATION_COMMAND = "termux-notification";
 const TERMUX_NOTIFICATION_TITLE = "Gemini";
 const TERMUX_SPEECH_TO_TEXT_COMMAND = "termux-speech-to-text";
 const VOICE_CONFIRMATION_ACCEPTED_VALUES = ["y", "yes"];
+const VOICE_FLAG_NAME = "--voice";
 const GEMINI_API_KEY_ENV_VAR_NAME = "GEMINI_API_KEY";
 const GEMINI_MODEL_NAME = "gemini-3.1-flash-lite";
 const GEMINI_AUTH_ERROR_HTTP_STATUS = 401;
@@ -155,6 +156,37 @@ function displayResultToUser(geminiResponseText) {
 }
 
 /**
+ * Runs the voice input flow: capture a spoken prompt, confirm it with the
+ * user, send it to Gemini if confirmed, and display the reply.
+ *
+ * @param {GoogleGenAI} geminiClient - The Gemini SDK client to send the request through.
+ * @param {object} [dependencies] - Injectable dependencies, overridable in tests.
+ * @param {typeof captureVoicePrompt} [dependencies.captureVoicePromptFn]
+ * @param {typeof confirmPromptWithUser} [dependencies.confirmPromptWithUserFn]
+ * @param {typeof displayResultToUser} [dependencies.displayResultToUserFn]
+ * @returns {Promise<void>}
+ */
+async function runVoiceFlow(
+  geminiClient,
+  {
+    captureVoicePromptFn = captureVoicePrompt,
+    confirmPromptWithUserFn = confirmPromptWithUser,
+    displayResultToUserFn = displayResultToUser,
+  } = {},
+) {
+  const transcriptText = await captureVoicePromptFn();
+  const isConfirmed = await confirmPromptWithUserFn(transcriptText);
+
+  if (!isConfirmed) {
+    console.log("Cancelled.");
+    return;
+  }
+
+  const geminiResponseText = await sendPromptToGemini(transcriptText, geminiClient);
+  await displayResultToUserFn(geminiResponseText);
+}
+
+/**
  * Entry point: reads the CLI argument, calls Gemini, and displays the
  * result. All failures are caught and reported cleanly instead of throwing
  * an unhandled exception.
@@ -162,10 +194,12 @@ function displayResultToUser(geminiResponseText) {
  * @returns {Promise<void>}
  */
 async function main() {
+  const isVoiceMode = process.argv.includes(VOICE_FLAG_NAME);
   const userPromptText = process.argv[2];
 
-  if (!userPromptText) {
+  if (!isVoiceMode && !userPromptText) {
     console.error('Usage: node ask-gemini.js "your prompt here"');
+    console.error(`   or: node ask-gemini.js ${VOICE_FLAG_NAME}`);
     process.exitCode = 1;
     return;
   }
@@ -181,6 +215,16 @@ async function main() {
   const geminiClient = new GoogleGenAI({
     apiKey: process.env[GEMINI_API_KEY_ENV_VAR_NAME],
   });
+
+  if (isVoiceMode) {
+    try {
+      await runVoiceFlow(geminiClient);
+    } catch (voiceError) {
+      console.error(`Error: ${voiceError.message}`);
+      process.exitCode = 1;
+    }
+    return;
+  }
 
   let geminiResponseText;
   try {
@@ -205,6 +249,8 @@ module.exports = {
   TERMUX_SPEECH_TO_TEXT_COMMAND,
   confirmPromptWithUser,
   VOICE_CONFIRMATION_ACCEPTED_VALUES,
+  runVoiceFlow,
+  VOICE_FLAG_NAME,
   displayResultToUser,
   GEMINI_MODEL_NAME,
 };
