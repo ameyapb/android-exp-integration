@@ -1,0 +1,13 @@
+{
+  "name": "phone-app-exp",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Personal side project: talk to Claude from a spare Android phone via Termux.",
+  "main": "ask-claude.js",
+  "scripts": {
+    "ask": "node ask-claude.js"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.65.0"
+  }
+}
