@@ -90,10 +90,11 @@ These rules are carried over from the user's other projects (`cloud_kitchen`, `d
 
 - `npm install` — install `@google/genai` and `dotenv` (once per phone/clone).
 - `node ask-gemini.js "<prompt>"` — send a prompt to Gemini and print/notify the reply.
+- `node ask-gemini.js --voice` — record a spoken prompt via Termux:API, confirm the transcript, and send it to Gemini.
 - `npm test` — run the test suite.
 
 No build step, no TypeScript, no lint tooling yet — add these when the project grows past a single script.
 
 ## Architecture Overview
 
-Runs inside Termux on Android. `ask-gemini.js` is a single-file CLI with two separated concerns: calling Gemini via the `@google/genai` SDK (`ai.models.generateContent({ model, contents })`), and displaying the result (stdout plus a `termux-notification` shell-out that degrades gracefully if unavailable). The API key is loaded from a gitignored `.env` file via `dotenv`, never hardcoded or logged. This is the foundation for giving the assistant broader control over the phone in future iterations — document new components here as they're added.
+Runs inside Termux on Android. `ask-gemini.js` is a single-file CLI with separated concerns: calling Gemini via the `@google/genai` SDK (`ai.models.generateContent({ model, contents })`), capturing a spoken prompt via Termux:API's `termux-speech-to-text` (`captureVoicePrompt`, used when the `--voice` flag is passed), confirming a voice transcript with the user before sending it (`confirmPromptWithUser`), and displaying the result (stdout plus a `termux-notification` shell-out that degrades gracefully if unavailable). The API key is loaded from a gitignored `.env` file via `dotenv`, never hardcoded or logged. `shortcuts/ask-gemini-voice.sh` is a Termux:Widget shortcut script that runs `node ask-gemini.js --voice`, symlinked into `~/.shortcuts/` on the phone for a one-tap, no-typing voice query from the home screen. This is the foundation for giving the assistant broader control over the phone in future iterations — document new components here as they're added.
