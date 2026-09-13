@@ -10,6 +10,8 @@
  *   node ask-claude.js "what's 2+2"
  */
 
+require("dotenv").config({ quiet: true });
+
 const Anthropic = require("@anthropic-ai/sdk");
 const { execFile } = require("child_process");
 
@@ -34,8 +36,8 @@ function readAndValidateConfiguration() {
 
   if (!anthropicApiKey) {
     throw new Error(
-      `Missing API key. Set the ${ENVIRONMENT_VARIABLE_NAME_FOR_API_KEY} environment variable ` +
-        `before running this script (e.g. add "export ${ENVIRONMENT_VARIABLE_NAME_FOR_API_KEY}=sk-ant-..." to ~/.bashrc).`,
+      `Missing API key. Set ${ENVIRONMENT_VARIABLE_NAME_FOR_API_KEY} in a .env file in the project root ` +
+        `(e.g. "${ENVIRONMENT_VARIABLE_NAME_FOR_API_KEY}=sk-ant-...", see .env.example) or export it in your shell before running this script.`,
     );
   }
 

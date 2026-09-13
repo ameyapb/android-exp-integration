@@ -86,11 +86,12 @@ These rules are carried over from the user's other projects (`cloud_kitchen`, `d
 
 ## Commands
 
-- `npm install` — install dependencies (currently just `@anthropic-ai/sdk`).
+- `npm install` — install dependencies (`@anthropic-ai/sdk`, `dotenv`).
+- Copy `.env.example` to `.env` and fill in `ANTHROPIC_API_KEY` (once, per machine/clone).
 - `node ask-claude.js "<prompt>"` — send a prompt to Claude and print/notify the reply.
 
 No build step, no TypeScript, no lint/test tooling yet — add these when the project grows past a single script.
 
 ## Architecture Overview
 
-Runs inside Termux on Android. `ask-claude.js` is a single-file CLI with three separated concerns: reading/validating `ANTHROPIC_API_KEY` from the environment, calling the Claude API via `@anthropic-ai/sdk`, and displaying the result (stdout plus a `termux-notification` shell-out that degrades gracefully if unavailable). The model name is a top-of-file constant (`CLAUDE_MODEL_NAME`, currently `claude-haiku-4-5-20251001`) swappable for `claude-sonnet-5` for higher-quality answers at higher cost. This is the foundation for giving Claude broader control over the phone in future iterations — document new components here as they're added.
+Runs inside Termux on Android. `ask-claude.js` is a single-file CLI with three separated concerns: reading/validating `ANTHROPIC_API_KEY` (loaded from a gitignored `.env` file via `dotenv`, or from the shell environment), calling the Claude API via `@anthropic-ai/sdk`, and displaying the result (stdout plus a `termux-notification` shell-out that degrades gracefully if unavailable). The model name is a top-of-file constant (`CLAUDE_MODEL_NAME`, currently `claude-haiku-4-5-20251001`) swappable for `claude-sonnet-5` for higher-quality answers at higher cost. This is the foundation for giving Claude broader control over the phone in future iterations — document new components here as they're added.
