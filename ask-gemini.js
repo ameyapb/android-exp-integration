@@ -25,7 +25,9 @@ const TERMUX_SPEECH_TO_TEXT_COMMAND = "termux-speech-to-text";
 const TERMUX_TTS_SPEAK_COMMAND = "termux-tts-speak";
 const TERMUX_DIALOG_COMMAND = "termux-dialog";
 const TERMUX_DIALOG_TITLE = "Confirm prompt";
-const TERMUX_DIALOG_CANCELLED_CODE = -1;
+// termux-dialog's text widget reports Android's raw DialogInterface button
+// codes: BUTTON_POSITIVE (OK) is -1, BUTTON_NEGATIVE (Cancel/dismiss) is -2.
+const TERMUX_DIALOG_CONFIRMED_CODE = -1;
 const VOICE_CONFIRMATION_ACCEPTED_VALUES = ["y", "yes"];
 const VOICE_FLAG_NAME = "--voice";
 const GEMINI_API_KEY_ENV_VAR_NAME = "GEMINI_API_KEY";
@@ -137,13 +139,17 @@ async function confirmPromptWithUser(transcriptText, readLineFn = readOneLineFro
 }
 
 /**
- * Shows the transcript in an editable native dialog via Termux:API's
- * termux-dialog and asks the user to confirm (optionally correcting the
- * text) before sending it to Gemini.
+ * Shows the transcript as hint text in a native termux-dialog text input and
+ * asks the user to confirm before sending it to Gemini. termux-dialog's
+ * text widget only supports hint (placeholder) text via Android's
+ * EditText.setHint, not real pre-filled editable content, so the box starts
+ * empty: tapping OK with nothing typed confirms the original transcript
+ * unchanged, while typing a full replacement and tapping OK sends that
+ * instead. Tapping Cancel discards the transcript.
  *
  * @param {string} transcriptText - The transcript to confirm.
  * @param {typeof execFile} [execFileFn] - The execFile implementation to use; defaults to Node's child_process.execFile, overridable in tests.
- * @returns {Promise<{ confirmed: boolean, promptText: string }>} Whether the user confirmed, and the (possibly edited) text to send.
+ * @returns {Promise<{ confirmed: boolean, promptText: string }>} Whether the user confirmed, and the text to send (the typed replacement if any, otherwise the original transcript).
  * @throws {Error} If termux-dialog is unavailable or returns unparseable output; callers should fall back to confirmPromptWithUser on failure.
  */
 function confirmPromptWithUserViaDialog(transcriptText, execFileFn = execFile) {
@@ -165,12 +171,13 @@ function confirmPromptWithUserViaDialog(transcriptText, execFileFn = execFile) {
           return;
         }
 
-        if (parsedResult.code === TERMUX_DIALOG_CANCELLED_CODE || !parsedResult.text) {
+        if (parsedResult.code !== TERMUX_DIALOG_CONFIRMED_CODE) {
           resolve({ confirmed: false, promptText: "" });
           return;
         }
 
-        resolve({ confirmed: true, promptText: parsedResult.text.trim() });
+        const typedText = (parsedResult.text || "").trim();
+        resolve({ confirmed: true, promptText: typedText || transcriptText });
       },
     );
   });
@@ -360,7 +367,7 @@ module.exports = {
   confirmPromptWithFallback,
   TERMUX_DIALOG_COMMAND,
   TERMUX_DIALOG_TITLE,
-  TERMUX_DIALOG_CANCELLED_CODE,
+  TERMUX_DIALOG_CONFIRMED_CODE,
   VOICE_CONFIRMATION_ACCEPTED_VALUES,
   runVoiceFlow,
   VOICE_FLAG_NAME,

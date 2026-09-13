@@ -155,9 +155,9 @@ test("confirmPromptWithUser resolves false on empty input", async () => {
   assert.equal(confirmed, false);
 });
 
-test("confirmPromptWithUserViaDialog resolves confirmed with unedited text on OK", async () => {
+test("confirmPromptWithUserViaDialog resolves confirmed with the original transcript when OK is tapped with nothing typed", async () => {
   const fakeExecFile = (command, args, callback) => {
-    callback(null, JSON.stringify({ text: "what's 2+2", code: 0 }));
+    callback(null, JSON.stringify({ text: "", code: -1 }));
   };
 
   const result = await confirmPromptWithUserViaDialog("what's 2+2", fakeExecFile);
@@ -165,9 +165,9 @@ test("confirmPromptWithUserViaDialog resolves confirmed with unedited text on OK
   assert.deepEqual(result, { confirmed: true, promptText: "what's 2+2" });
 });
 
-test("confirmPromptWithUserViaDialog resolves confirmed with edited text on OK", async () => {
+test("confirmPromptWithUserViaDialog resolves confirmed with the typed replacement when OK is tapped with text entered", async () => {
   const fakeExecFile = (command, args, callback) => {
-    callback(null, JSON.stringify({ text: "what's 3+3", code: 0 }));
+    callback(null, JSON.stringify({ text: "what's 3+3", code: -1 }));
   };
 
   const result = await confirmPromptWithUserViaDialog("what's 2+2", fakeExecFile);
@@ -175,9 +175,9 @@ test("confirmPromptWithUserViaDialog resolves confirmed with edited text on OK",
   assert.deepEqual(result, { confirmed: true, promptText: "what's 3+3" });
 });
 
-test("confirmPromptWithUserViaDialog resolves not confirmed on cancel", async () => {
+test("confirmPromptWithUserViaDialog resolves not confirmed when Cancel is tapped", async () => {
   const fakeExecFile = (command, args, callback) => {
-    callback(null, JSON.stringify({ code: -1 }));
+    callback(null, JSON.stringify({ code: -2 }));
   };
 
   const result = await confirmPromptWithUserViaDialog("what's 2+2", fakeExecFile);
@@ -185,9 +185,9 @@ test("confirmPromptWithUserViaDialog resolves not confirmed on cancel", async ()
   assert.deepEqual(result, { confirmed: false, promptText: "" });
 });
 
-test("confirmPromptWithUserViaDialog resolves not confirmed on empty edited text", async () => {
+test("confirmPromptWithUserViaDialog resolves not confirmed when the dialog is dismissed", async () => {
   const fakeExecFile = (command, args, callback) => {
-    callback(null, JSON.stringify({ text: "", code: 0 }));
+    callback(null, JSON.stringify({ code: -2 }));
   };
 
   const result = await confirmPromptWithUserViaDialog("what's 2+2", fakeExecFile);
@@ -217,11 +217,11 @@ test("confirmPromptWithUserViaDialog rejects when termux-dialog returns unparsea
   );
 });
 
-test("confirmPromptWithUserViaDialog calls termux-dialog with the transcript pre-filled", async () => {
+test("confirmPromptWithUserViaDialog calls termux-dialog with the transcript as hint text", async () => {
   const recordedCalls = [];
   const fakeExecFile = (command, args, callback) => {
     recordedCalls.push({ command, args });
-    callback(null, JSON.stringify({ text: "what's 2+2", code: 0 }));
+    callback(null, JSON.stringify({ text: "", code: -1 }));
   };
 
   await confirmPromptWithUserViaDialog("what's 2+2", fakeExecFile);
