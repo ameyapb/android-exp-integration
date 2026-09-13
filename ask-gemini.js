@@ -22,6 +22,7 @@ const { GoogleGenAI } = require("@google/genai");
 const TERMUX_NOTIFICATION_COMMAND = "termux-notification";
 const TERMUX_NOTIFICATION_TITLE = "Gemini";
 const TERMUX_SPEECH_TO_TEXT_COMMAND = "termux-speech-to-text";
+const TERMUX_TTS_SPEAK_COMMAND = "termux-tts-speak";
 const VOICE_CONFIRMATION_ACCEPTED_VALUES = ["y", "yes"];
 const VOICE_FLAG_NAME = "--voice";
 const GEMINI_API_KEY_ENV_VAR_NAME = "GEMINI_API_KEY";
@@ -86,6 +87,28 @@ function captureVoicePrompt(execFileFn = execFile) {
         return;
       }
       resolve(stdout.trim());
+    });
+  });
+}
+
+/**
+ * Speaks the given text aloud via Termux:API's termux-tts-speak. Failures
+ * are logged as warnings and never interrupt the CLI's normal output,
+ * matching the existing notification-failure handling in displayResultToUser.
+ *
+ * @param {string} textToSpeak - The text to speak aloud.
+ * @param {typeof execFile} [execFileFn] - The execFile implementation to use; defaults to Node's child_process.execFile, overridable in tests.
+ * @returns {Promise<void>} Resolves once the speech attempt finishes (success or failure).
+ */
+function speakResponseAloud(textToSpeak, execFileFn = execFile) {
+  return new Promise((resolve) => {
+    execFileFn(TERMUX_TTS_SPEAK_COMMAND, [textToSpeak], (execError) => {
+      if (execError) {
+        console.warn(
+          `Warning: could not speak response aloud (${TERMUX_TTS_SPEAK_COMMAND} unavailable or failed): ${execError.message}`,
+        );
+      }
+      resolve();
     });
   });
 }
@@ -157,13 +180,15 @@ function displayResultToUser(geminiResponseText) {
 
 /**
  * Runs the voice input flow: capture a spoken prompt, confirm it with the
- * user, send it to Gemini if confirmed, and display the reply.
+ * user, send it to Gemini if confirmed, display the reply, and speak it
+ * aloud.
  *
  * @param {GoogleGenAI} geminiClient - The Gemini SDK client to send the request through.
  * @param {object} [dependencies] - Injectable dependencies, overridable in tests.
  * @param {typeof captureVoicePrompt} [dependencies.captureVoicePromptFn]
  * @param {typeof confirmPromptWithUser} [dependencies.confirmPromptWithUserFn]
  * @param {typeof displayResultToUser} [dependencies.displayResultToUserFn]
+ * @param {typeof speakResponseAloud} [dependencies.speakResponseAloudFn]
  * @returns {Promise<void>}
  */
 async function runVoiceFlow(
@@ -172,6 +197,7 @@ async function runVoiceFlow(
     captureVoicePromptFn = captureVoicePrompt,
     confirmPromptWithUserFn = confirmPromptWithUser,
     displayResultToUserFn = displayResultToUser,
+    speakResponseAloudFn = speakResponseAloud,
   } = {},
 ) {
   const transcriptText = await captureVoicePromptFn();
@@ -184,6 +210,7 @@ async function runVoiceFlow(
 
   const geminiResponseText = await sendPromptToGemini(transcriptText, geminiClient);
   await displayResultToUserFn(geminiResponseText);
+  await speakResponseAloudFn(geminiResponseText);
 }
 
 /**
@@ -253,4 +280,6 @@ module.exports = {
   VOICE_FLAG_NAME,
   displayResultToUser,
   GEMINI_MODEL_NAME,
+  speakResponseAloud,
+  TERMUX_TTS_SPEAK_COMMAND,
 };

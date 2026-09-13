@@ -8,6 +8,8 @@ const {
   confirmPromptWithUser,
   runVoiceFlow,
   GEMINI_MODEL_NAME,
+  speakResponseAloud,
+  TERMUX_TTS_SPEAK_COMMAND,
 } = require("./ask-gemini.js");
 
 test("sendPromptToGemini sends the prompt to the configured model and returns the trimmed text reply", async () => {
@@ -194,4 +196,76 @@ test("runVoiceFlow does not call Gemini when the user does not confirm", async (
   });
 
   assert.equal(recordedGeminiCalls.length, 0);
+});
+
+test("speakResponseAloud calls termux-tts-speak with the response text", async () => {
+  const recordedCalls = [];
+  const fakeExecFile = (command, args, callback) => {
+    recordedCalls.push({ command, args });
+    callback(null, "", "");
+  };
+
+  await speakResponseAloud("It's sunny.", fakeExecFile);
+
+  assert.equal(recordedCalls.length, 1);
+  assert.equal(recordedCalls[0].command, TERMUX_TTS_SPEAK_COMMAND);
+  assert.deepEqual(recordedCalls[0].args, ["It's sunny."]);
+});
+
+test("speakResponseAloud warns and resolves when termux-tts-speak fails", async () => {
+  const fakeExecFile = (command, args, callback) => {
+    callback(new Error("command not found"), "", "");
+  };
+  const originalWarn = console.warn;
+  const recordedWarnings = [];
+  console.warn = (message) => recordedWarnings.push(message);
+
+  try {
+    await speakResponseAloud("It's sunny.", fakeExecFile);
+  } finally {
+    console.warn = originalWarn;
+  }
+
+  assert.equal(recordedWarnings.length, 1);
+  assert.match(recordedWarnings[0], /could not speak response aloud/);
+  assert.match(recordedWarnings[0], /command not found/);
+});
+
+test("runVoiceFlow speaks the reply aloud after a confirmed prompt", async () => {
+  const recordedSpokenText = [];
+  const fakeGeminiClient = {
+    models: {
+      generateContent: async () => ({ text: "It's sunny." }),
+    },
+  };
+
+  await runVoiceFlow(fakeGeminiClient, {
+    captureVoicePromptFn: async () => "what's the weather",
+    confirmPromptWithUserFn: async () => true,
+    displayResultToUserFn: async () => {},
+    speakResponseAloudFn: async (text) => {
+      recordedSpokenText.push(text);
+    },
+  });
+
+  assert.deepEqual(recordedSpokenText, ["It's sunny."]);
+});
+
+test("runVoiceFlow does not speak when the user does not confirm", async () => {
+  const fakeGeminiClient = {
+    models: {
+      generateContent: async () => ({ text: "should not be reached" }),
+    },
+  };
+
+  await runVoiceFlow(fakeGeminiClient, {
+    captureVoicePromptFn: async () => "what's the weather",
+    confirmPromptWithUserFn: async () => false,
+    displayResultToUserFn: async () => {
+      throw new Error("displayResultToUserFn should not be called");
+    },
+    speakResponseAloudFn: async () => {
+      throw new Error("speakResponseAloudFn should not be called");
+    },
+  });
 });
