@@ -25,9 +25,10 @@ const TERMUX_SPEECH_TO_TEXT_COMMAND = "termux-speech-to-text";
 const TERMUX_TTS_SPEAK_COMMAND = "termux-tts-speak";
 const TERMUX_DIALOG_COMMAND = "termux-dialog";
 const TERMUX_DIALOG_TITLE = "Confirm prompt";
-// termux-dialog's text widget reports Android's raw DialogInterface button
-// codes: BUTTON_POSITIVE (OK) is -1, BUTTON_NEGATIVE (Cancel/dismiss) is -2.
-const TERMUX_DIALOG_CONFIRMED_CODE = -1;
+// termux-dialog's confirm widget shows Yes/No buttons and always reports
+// code: 0 for both; the tapped button is only distinguishable via the
+// "text" field ("yes" or "no").
+const TERMUX_DIALOG_CONFIRMED_TEXT = "yes";
 const VOICE_CONFIRMATION_ACCEPTED_VALUES = ["y", "yes"];
 const VOICE_FLAG_NAME = "--voice";
 const GEMINI_API_KEY_ENV_VAR_NAME = "GEMINI_API_KEY";
@@ -147,7 +148,7 @@ async function confirmPromptWithUser(transcriptText, readLineFn = readOneLineFro
  *
  * @param {string} transcriptText - The transcript to confirm.
  * @param {typeof execFile} [execFileFn] - The execFile implementation to use; defaults to Node's child_process.execFile, overridable in tests.
- * @returns {Promise<boolean>} Whether the user tapped OK.
+ * @returns {Promise<boolean>} Whether the user tapped Yes.
  * @throws {Error} If termux-dialog is unavailable or returns unparseable output; callers should fall back to confirmPromptWithUser on failure.
  */
 function confirmPromptWithUserViaDialog(transcriptText, execFileFn = execFile) {
@@ -169,7 +170,7 @@ function confirmPromptWithUserViaDialog(transcriptText, execFileFn = execFile) {
           return;
         }
 
-        resolve(parsedResult.code === TERMUX_DIALOG_CONFIRMED_CODE);
+        resolve(parsedResult.text === TERMUX_DIALOG_CONFIRMED_TEXT);
       },
     );
   });
@@ -358,7 +359,7 @@ module.exports = {
   confirmPromptWithFallback,
   TERMUX_DIALOG_COMMAND,
   TERMUX_DIALOG_TITLE,
-  TERMUX_DIALOG_CONFIRMED_CODE,
+  TERMUX_DIALOG_CONFIRMED_TEXT,
   VOICE_CONFIRMATION_ACCEPTED_VALUES,
   runVoiceFlow,
   VOICE_FLAG_NAME,

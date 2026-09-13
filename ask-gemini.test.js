@@ -155,9 +155,9 @@ test("confirmPromptWithUser resolves false on empty input", async () => {
   assert.equal(confirmed, false);
 });
 
-test("confirmPromptWithUserViaDialog resolves true when OK is tapped", async () => {
+test("confirmPromptWithUserViaDialog resolves true when Yes is tapped", async () => {
   const fakeExecFile = (command, args, callback) => {
-    callback(null, JSON.stringify({ code: -1 }));
+    callback(null, JSON.stringify({ code: 0, text: "yes" }));
   };
 
   const confirmed = await confirmPromptWithUserViaDialog("what's 2+2", fakeExecFile);
@@ -165,9 +165,9 @@ test("confirmPromptWithUserViaDialog resolves true when OK is tapped", async () 
   assert.equal(confirmed, true);
 });
 
-test("confirmPromptWithUserViaDialog resolves false when Cancel is tapped", async () => {
+test("confirmPromptWithUserViaDialog resolves false when No is tapped", async () => {
   const fakeExecFile = (command, args, callback) => {
-    callback(null, JSON.stringify({ code: -2 }));
+    callback(null, JSON.stringify({ code: 0, text: "no" }));
   };
 
   const confirmed = await confirmPromptWithUserViaDialog("what's 2+2", fakeExecFile);
@@ -177,7 +177,7 @@ test("confirmPromptWithUserViaDialog resolves false when Cancel is tapped", asyn
 
 test("confirmPromptWithUserViaDialog resolves false when the dialog is dismissed", async () => {
   const fakeExecFile = (command, args, callback) => {
-    callback(null, JSON.stringify({ code: -2 }));
+    callback(null, JSON.stringify({ code: 0, text: "no" }));
   };
 
   const confirmed = await confirmPromptWithUserViaDialog("what's 2+2", fakeExecFile);
