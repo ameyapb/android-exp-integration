@@ -3,6 +3,8 @@ const assert = require("node:assert/strict");
 const {
   sendPromptToGemini,
   describeGeminiApiError,
+  captureVoicePrompt,
+  TERMUX_SPEECH_TO_TEXT_COMMAND,
   GEMINI_MODEL_NAME,
 } = require("./ask-gemini.js");
 
@@ -69,4 +71,33 @@ test("describeGeminiApiError reports a clear message for a rate limit failure", 
 
   assert.match(message, /Gemini API error/);
   assert.match(message, /Resource exhausted/);
+});
+
+test("captureVoicePrompt returns the trimmed transcript from termux-speech-to-text", async () => {
+  const recordedCalls = [];
+  const fakeExecFile = (command, args, callback) => {
+    recordedCalls.push({ command, args });
+    callback(null, "  what's the weather today  \n", "");
+  };
+
+  const transcript = await captureVoicePrompt(fakeExecFile);
+
+  assert.equal(transcript, "what's the weather today");
+  assert.equal(recordedCalls.length, 1);
+  assert.equal(recordedCalls[0].command, TERMUX_SPEECH_TO_TEXT_COMMAND);
+});
+
+test("captureVoicePrompt surfaces a readable error when termux-speech-to-text fails", async () => {
+  const fakeExecFile = (command, args, callback) => {
+    callback(new Error("command not found"), "", "");
+  };
+
+  await assert.rejects(
+    () => captureVoicePrompt(fakeExecFile),
+    (thrownError) => {
+      assert.match(thrownError.message, /Voice input error/);
+      assert.match(thrownError.message, /command not found/);
+      return true;
+    },
+  );
 });

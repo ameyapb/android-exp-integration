@@ -20,6 +20,7 @@ const { GoogleGenAI } = require("@google/genai");
 
 const TERMUX_NOTIFICATION_COMMAND = "termux-notification";
 const TERMUX_NOTIFICATION_TITLE = "Gemini";
+const TERMUX_SPEECH_TO_TEXT_COMMAND = "termux-speech-to-text";
 const GEMINI_API_KEY_ENV_VAR_NAME = "GEMINI_API_KEY";
 const GEMINI_MODEL_NAME = "gemini-3.1-flash-lite";
 const GEMINI_AUTH_ERROR_HTTP_STATUS = 401;
@@ -61,6 +62,29 @@ function describeGeminiApiError(apiError) {
     return `Gemini API error: ${apiError.message}. You've hit the free tier rate limit, wait a bit and try again.`;
   }
   return `Gemini API error: ${apiError.message}`;
+}
+
+/**
+ * Records speech via Termux:API and returns the transcribed text.
+ *
+ * @param {typeof execFile} [execFileFn] - The execFile implementation to use; defaults to Node's child_process.execFile, overridable in tests.
+ * @returns {Promise<string>} The trimmed transcript. Empty string if nothing was heard.
+ * @throws {Error} A human-readable error if termux-speech-to-text is unavailable or fails.
+ */
+function captureVoicePrompt(execFileFn = execFile) {
+  return new Promise((resolve, reject) => {
+    execFileFn(TERMUX_SPEECH_TO_TEXT_COMMAND, [], (execError, stdout) => {
+      if (execError) {
+        reject(
+          new Error(
+            `Voice input error: ${execError.message}. Check that Termux:API is installed (pkg install termux-api) and the Termux:API Android app is granted microphone access.`,
+          ),
+        );
+        return;
+      }
+      resolve(stdout.trim());
+    });
+  });
 }
 
 /**
@@ -137,6 +161,8 @@ if (require.main === module) {
 module.exports = {
   sendPromptToGemini,
   describeGeminiApiError,
+  captureVoicePrompt,
+  TERMUX_SPEECH_TO_TEXT_COMMAND,
   displayResultToUser,
   GEMINI_MODEL_NAME,
 };
