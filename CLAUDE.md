@@ -85,6 +85,7 @@ These rules are carried over from the user's other projects (`cloud_kitchen`, `d
 - Pre-production only: work directly on the main branch — don't create git worktrees or feature branches for skill-driven workflows (plans, subagent-driven development) unless the user explicitly asks for one. Revisit once there's a real deployment or shared branch to protect.
 - If an implementation plan has multiple phases, never execute all of them in one uninterrupted run unless explicitly told to — implement directly in-session and check in before starting a new phase.
 - Token budget constraint: the user runs on a metered plan, not unlimited tokens. Treat context window usage as a real cost: prefer direct, concise implementation over exploratory back-and-forth, and don't re-read files or re-derive already-established context. When phasing an implementation plan, size each phase to roughly 5-8 files touched/created as a ceiling so it fits in one session without the context window filling up mid-phase.
+- Termux:Widget does not reliably list symlinked scripts in `~/.shortcuts/` — deploy shortcut scripts there with `cp`, not `ln -s`, and re-copy after every `git pull` that changes the script (confirmed by direct testing on-device: the widget picker showed zero scripts with a symlink present, and started listing the script immediately after replacing it with a real copy).
 
 ## Commands
 
