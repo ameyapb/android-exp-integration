@@ -6,6 +6,10 @@ const {
   captureVoicePrompt,
   TERMUX_SPEECH_TO_TEXT_COMMAND,
   confirmPromptWithUser,
+  confirmPromptWithUserViaDialog,
+  confirmPromptWithFallback,
+  TERMUX_DIALOG_COMMAND,
+  TERMUX_DIALOG_TITLE,
   runVoiceFlow,
   GEMINI_MODEL_NAME,
   speakResponseAloud,
@@ -151,6 +155,128 @@ test("confirmPromptWithUser resolves false on empty input", async () => {
   assert.equal(confirmed, false);
 });
 
+test("confirmPromptWithUserViaDialog resolves confirmed with unedited text on OK", async () => {
+  const fakeExecFile = (command, args, callback) => {
+    callback(null, JSON.stringify({ text: "what's 2+2", code: 0 }));
+  };
+
+  const result = await confirmPromptWithUserViaDialog("what's 2+2", fakeExecFile);
+
+  assert.deepEqual(result, { confirmed: true, promptText: "what's 2+2" });
+});
+
+test("confirmPromptWithUserViaDialog resolves confirmed with edited text on OK", async () => {
+  const fakeExecFile = (command, args, callback) => {
+    callback(null, JSON.stringify({ text: "what's 3+3", code: 0 }));
+  };
+
+  const result = await confirmPromptWithUserViaDialog("what's 2+2", fakeExecFile);
+
+  assert.deepEqual(result, { confirmed: true, promptText: "what's 3+3" });
+});
+
+test("confirmPromptWithUserViaDialog resolves not confirmed on cancel", async () => {
+  const fakeExecFile = (command, args, callback) => {
+    callback(null, JSON.stringify({ code: -1 }));
+  };
+
+  const result = await confirmPromptWithUserViaDialog("what's 2+2", fakeExecFile);
+
+  assert.deepEqual(result, { confirmed: false, promptText: "" });
+});
+
+test("confirmPromptWithUserViaDialog resolves not confirmed on empty edited text", async () => {
+  const fakeExecFile = (command, args, callback) => {
+    callback(null, JSON.stringify({ text: "", code: 0 }));
+  };
+
+  const result = await confirmPromptWithUserViaDialog("what's 2+2", fakeExecFile);
+
+  assert.deepEqual(result, { confirmed: false, promptText: "" });
+});
+
+test("confirmPromptWithUserViaDialog rejects when termux-dialog is unavailable", async () => {
+  const fakeExecFile = (command, args, callback) => {
+    callback(new Error("command not found"));
+  };
+
+  await assert.rejects(
+    () => confirmPromptWithUserViaDialog("what's 2+2", fakeExecFile),
+    /termux-dialog unavailable or failed/,
+  );
+});
+
+test("confirmPromptWithUserViaDialog rejects when termux-dialog returns unparseable output", async () => {
+  const fakeExecFile = (command, args, callback) => {
+    callback(null, "not json");
+  };
+
+  await assert.rejects(
+    () => confirmPromptWithUserViaDialog("what's 2+2", fakeExecFile),
+    /termux-dialog returned unparseable output/,
+  );
+});
+
+test("confirmPromptWithUserViaDialog calls termux-dialog with the transcript pre-filled", async () => {
+  const recordedCalls = [];
+  const fakeExecFile = (command, args, callback) => {
+    recordedCalls.push({ command, args });
+    callback(null, JSON.stringify({ text: "what's 2+2", code: 0 }));
+  };
+
+  await confirmPromptWithUserViaDialog("what's 2+2", fakeExecFile);
+
+  assert.equal(recordedCalls.length, 1);
+  assert.equal(recordedCalls[0].command, TERMUX_DIALOG_COMMAND);
+  assert.deepEqual(recordedCalls[0].args, ["text", "-t", TERMUX_DIALOG_TITLE, "-i", "what's 2+2"]);
+});
+
+test("confirmPromptWithFallback resolves not confirmed without calling the dialog when transcript is empty", async () => {
+  let dialogCalled = false;
+  const result = await confirmPromptWithFallback("", {
+    confirmPromptWithUserViaDialogFn: async () => {
+      dialogCalled = true;
+      return { confirmed: true, promptText: "should not happen" };
+    },
+  });
+
+  assert.equal(dialogCalled, false);
+  assert.deepEqual(result, { confirmed: false, promptText: "" });
+});
+
+test("confirmPromptWithFallback returns the dialog result when the dialog succeeds", async () => {
+  const result = await confirmPromptWithFallback("what's 2+2", {
+    confirmPromptWithUserViaDialogFn: async () => ({ confirmed: true, promptText: "what's 3+3" }),
+  });
+
+  assert.deepEqual(result, { confirmed: true, promptText: "what's 3+3" });
+});
+
+test("confirmPromptWithFallback falls back to the stdin prompt when the dialog throws", async () => {
+  const result = await confirmPromptWithFallback("what's 2+2", {
+    confirmPromptWithUserViaDialogFn: async () => {
+      throw new Error("termux-dialog unavailable or failed: command not found");
+    },
+    confirmPromptWithUserFn: async (transcriptText) => {
+      assert.equal(transcriptText, "what's 2+2");
+      return true;
+    },
+  });
+
+  assert.deepEqual(result, { confirmed: true, promptText: "what's 2+2" });
+});
+
+test("confirmPromptWithFallback falls back to a declined stdin prompt when the dialog throws", async () => {
+  const result = await confirmPromptWithFallback("what's 2+2", {
+    confirmPromptWithUserViaDialogFn: async () => {
+      throw new Error("termux-dialog unavailable or failed: command not found");
+    },
+    confirmPromptWithUserFn: async () => false,
+  });
+
+  assert.deepEqual(result, { confirmed: false, promptText: "what's 2+2" });
+});
+
 test("runVoiceFlow sends the confirmed transcript to Gemini and displays the reply", async () => {
   const recordedGeminiCalls = [];
   const recordedDisplayCalls = [];
@@ -165,7 +291,7 @@ test("runVoiceFlow sends the confirmed transcript to Gemini and displays the rep
 
   await runVoiceFlow(fakeGeminiClient, {
     captureVoicePromptFn: async () => "what's the weather",
-    confirmPromptWithUserFn: async () => true,
+    confirmPromptWithFallbackFn: async () => ({ confirmed: true, promptText: "what's the weather" }),
     displayResultToUserFn: async (text) => {
       recordedDisplayCalls.push(text);
     },
@@ -174,6 +300,27 @@ test("runVoiceFlow sends the confirmed transcript to Gemini and displays the rep
   assert.equal(recordedGeminiCalls.length, 1);
   assert.equal(recordedGeminiCalls[0].contents, "what's the weather");
   assert.deepEqual(recordedDisplayCalls, ["It's sunny."]);
+});
+
+test("runVoiceFlow sends the edited prompt text to Gemini, not the raw transcript", async () => {
+  const recordedGeminiCalls = [];
+  const fakeGeminiClient = {
+    models: {
+      generateContent: async (request) => {
+        recordedGeminiCalls.push(request);
+        return { text: "6" };
+      },
+    },
+  };
+
+  await runVoiceFlow(fakeGeminiClient, {
+    captureVoicePromptFn: async () => "what's 2+2",
+    confirmPromptWithFallbackFn: async () => ({ confirmed: true, promptText: "what's 3+3" }),
+    displayResultToUserFn: async () => {},
+  });
+
+  assert.equal(recordedGeminiCalls.length, 1);
+  assert.equal(recordedGeminiCalls[0].contents, "what's 3+3");
 });
 
 test("runVoiceFlow does not call Gemini when the user does not confirm", async () => {
@@ -189,7 +336,7 @@ test("runVoiceFlow does not call Gemini when the user does not confirm", async (
 
   await runVoiceFlow(fakeGeminiClient, {
     captureVoicePromptFn: async () => "what's the weather",
-    confirmPromptWithUserFn: async () => false,
+    confirmPromptWithFallbackFn: async () => ({ confirmed: false, promptText: "" }),
     displayResultToUserFn: async () => {
       throw new Error("displayResultToUserFn should not be called");
     },
@@ -241,7 +388,7 @@ test("runVoiceFlow speaks the reply aloud after a confirmed prompt", async () =>
 
   await runVoiceFlow(fakeGeminiClient, {
     captureVoicePromptFn: async () => "what's the weather",
-    confirmPromptWithUserFn: async () => true,
+    confirmPromptWithFallbackFn: async () => ({ confirmed: true, promptText: "what's the weather" }),
     displayResultToUserFn: async () => {},
     speakResponseAloudFn: async (text) => {
       recordedSpokenText.push(text);
@@ -260,7 +407,7 @@ test("runVoiceFlow does not speak when the user does not confirm", async () => {
 
   await runVoiceFlow(fakeGeminiClient, {
     captureVoicePromptFn: async () => "what's the weather",
-    confirmPromptWithUserFn: async () => false,
+    confirmPromptWithFallbackFn: async () => ({ confirmed: false, promptText: "" }),
     displayResultToUserFn: async () => {
       throw new Error("displayResultToUserFn should not be called");
     },

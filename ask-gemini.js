@@ -23,6 +23,9 @@ const TERMUX_NOTIFICATION_COMMAND = "termux-notification";
 const TERMUX_NOTIFICATION_TITLE = "Gemini";
 const TERMUX_SPEECH_TO_TEXT_COMMAND = "termux-speech-to-text";
 const TERMUX_TTS_SPEAK_COMMAND = "termux-tts-speak";
+const TERMUX_DIALOG_COMMAND = "termux-dialog";
+const TERMUX_DIALOG_TITLE = "Confirm prompt";
+const TERMUX_DIALOG_CANCELLED_CODE = -1;
 const VOICE_CONFIRMATION_ACCEPTED_VALUES = ["y", "yes"];
 const VOICE_FLAG_NAME = "--voice";
 const GEMINI_API_KEY_ENV_VAR_NAME = "GEMINI_API_KEY";
@@ -133,6 +136,78 @@ async function confirmPromptWithUser(transcriptText, readLineFn = readOneLineFro
 }
 
 /**
+ * Shows the transcript in an editable native dialog via Termux:API's
+ * termux-dialog and asks the user to confirm (optionally correcting the
+ * text) before sending it to Gemini.
+ *
+ * @param {string} transcriptText - The transcript to confirm.
+ * @param {typeof execFile} [execFileFn] - The execFile implementation to use; defaults to Node's child_process.execFile, overridable in tests.
+ * @returns {Promise<{ confirmed: boolean, promptText: string }>} Whether the user confirmed, and the (possibly edited) text to send.
+ * @throws {Error} If termux-dialog is unavailable or returns unparseable output; callers should fall back to confirmPromptWithUser on failure.
+ */
+function confirmPromptWithUserViaDialog(transcriptText, execFileFn = execFile) {
+  return new Promise((resolve, reject) => {
+    execFileFn(
+      TERMUX_DIALOG_COMMAND,
+      ["text", "-t", TERMUX_DIALOG_TITLE, "-i", transcriptText],
+      (execError, stdout) => {
+        if (execError) {
+          reject(new Error(`${TERMUX_DIALOG_COMMAND} unavailable or failed: ${execError.message}`));
+          return;
+        }
+
+        let parsedResult;
+        try {
+          parsedResult = JSON.parse(stdout);
+        } catch (parseError) {
+          reject(new Error(`${TERMUX_DIALOG_COMMAND} returned unparseable output: ${parseError.message}`));
+          return;
+        }
+
+        if (parsedResult.code === TERMUX_DIALOG_CANCELLED_CODE || !parsedResult.text) {
+          resolve({ confirmed: false, promptText: "" });
+          return;
+        }
+
+        resolve({ confirmed: true, promptText: parsedResult.text.trim() });
+      },
+    );
+  });
+}
+
+/**
+ * Confirms a voice transcript with the user, preferring the native
+ * termux-dialog confirmation and falling back to the stdin y/N prompt if
+ * the dialog is unavailable or fails.
+ *
+ * @param {string} transcriptText - The transcript to confirm.
+ * @param {object} [dependencies] - Injectable dependencies, overridable in tests.
+ * @param {typeof confirmPromptWithUserViaDialog} [dependencies.confirmPromptWithUserViaDialogFn]
+ * @param {typeof confirmPromptWithUser} [dependencies.confirmPromptWithUserFn]
+ * @returns {Promise<{ confirmed: boolean, promptText: string }>} Whether the user confirmed, and the (possibly edited) text to send.
+ */
+async function confirmPromptWithFallback(
+  transcriptText,
+  {
+    confirmPromptWithUserViaDialogFn = confirmPromptWithUserViaDialog,
+    confirmPromptWithUserFn = confirmPromptWithUser,
+  } = {},
+) {
+  if (!transcriptText) {
+    console.log("Heard nothing, cancelling.");
+    return { confirmed: false, promptText: "" };
+  }
+
+  try {
+    return await confirmPromptWithUserViaDialogFn(transcriptText);
+  } catch (dialogError) {
+    console.warn(`Warning: falling back to text confirmation (${dialogError.message})`);
+    const confirmed = await confirmPromptWithUserFn(transcriptText);
+    return { confirmed, promptText: transcriptText };
+  }
+}
+
+/**
  * Reads a single line of input from process.stdin.
  *
  * @returns {Promise<string>} The raw line entered by the user.
@@ -180,13 +255,13 @@ function displayResultToUser(geminiResponseText) {
 
 /**
  * Runs the voice input flow: capture a spoken prompt, confirm it with the
- * user, send it to Gemini if confirmed, display the reply, and speak it
- * aloud.
+ * user (via dialog with stdin fallback), send it to Gemini if confirmed,
+ * display the reply, and speak it aloud.
  *
  * @param {GoogleGenAI} geminiClient - The Gemini SDK client to send the request through.
  * @param {object} [dependencies] - Injectable dependencies, overridable in tests.
  * @param {typeof captureVoicePrompt} [dependencies.captureVoicePromptFn]
- * @param {typeof confirmPromptWithUser} [dependencies.confirmPromptWithUserFn]
+ * @param {typeof confirmPromptWithFallback} [dependencies.confirmPromptWithFallbackFn]
  * @param {typeof displayResultToUser} [dependencies.displayResultToUserFn]
  * @param {typeof speakResponseAloud} [dependencies.speakResponseAloudFn]
  * @returns {Promise<void>}
@@ -195,20 +270,20 @@ async function runVoiceFlow(
   geminiClient,
   {
     captureVoicePromptFn = captureVoicePrompt,
-    confirmPromptWithUserFn = confirmPromptWithUser,
+    confirmPromptWithFallbackFn = confirmPromptWithFallback,
     displayResultToUserFn = displayResultToUser,
     speakResponseAloudFn = speakResponseAloud,
   } = {},
 ) {
   const transcriptText = await captureVoicePromptFn();
-  const isConfirmed = await confirmPromptWithUserFn(transcriptText);
+  const { confirmed, promptText } = await confirmPromptWithFallbackFn(transcriptText);
 
-  if (!isConfirmed) {
+  if (!confirmed) {
     console.log("Cancelled.");
     return;
   }
 
-  const geminiResponseText = await sendPromptToGemini(transcriptText, geminiClient);
+  const geminiResponseText = await sendPromptToGemini(promptText, geminiClient);
   await displayResultToUserFn(geminiResponseText);
   await speakResponseAloudFn(geminiResponseText);
 }
@@ -275,6 +350,11 @@ module.exports = {
   captureVoicePrompt,
   TERMUX_SPEECH_TO_TEXT_COMMAND,
   confirmPromptWithUser,
+  confirmPromptWithUserViaDialog,
+  confirmPromptWithFallback,
+  TERMUX_DIALOG_COMMAND,
+  TERMUX_DIALOG_TITLE,
+  TERMUX_DIALOG_CANCELLED_CODE,
   VOICE_CONFIRMATION_ACCEPTED_VALUES,
   runVoiceFlow,
   VOICE_FLAG_NAME,
