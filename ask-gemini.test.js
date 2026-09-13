@@ -5,6 +5,7 @@ const {
   describeGeminiApiError,
   captureVoicePrompt,
   TERMUX_SPEECH_TO_TEXT_COMMAND,
+  confirmPromptWithUser,
   GEMINI_MODEL_NAME,
 } = require("./ask-gemini.js");
 
@@ -100,4 +101,49 @@ test("captureVoicePrompt surfaces a readable error when termux-speech-to-text fa
       return true;
     },
   );
+});
+
+test("confirmPromptWithUser resolves false without prompting when the transcript is empty", async () => {
+  let readLineCallCount = 0;
+  const fakeReadLine = async () => {
+    readLineCallCount += 1;
+    return "y";
+  };
+
+  const confirmed = await confirmPromptWithUser("", fakeReadLine);
+
+  assert.equal(confirmed, false);
+  assert.equal(readLineCallCount, 0);
+});
+
+test("confirmPromptWithUser resolves true when the user types y", async () => {
+  const fakeReadLine = async () => "y";
+
+  const confirmed = await confirmPromptWithUser("what's 2+2", fakeReadLine);
+
+  assert.equal(confirmed, true);
+});
+
+test("confirmPromptWithUser resolves true when the user types Yes in any case", async () => {
+  const fakeReadLine = async () => "Yes";
+
+  const confirmed = await confirmPromptWithUser("what's 2+2", fakeReadLine);
+
+  assert.equal(confirmed, true);
+});
+
+test("confirmPromptWithUser resolves false when the user types anything else", async () => {
+  const fakeReadLine = async () => "n";
+
+  const confirmed = await confirmPromptWithUser("what's 2+2", fakeReadLine);
+
+  assert.equal(confirmed, false);
+});
+
+test("confirmPromptWithUser resolves false on empty input", async () => {
+  const fakeReadLine = async () => "";
+
+  const confirmed = await confirmPromptWithUser("what's 2+2", fakeReadLine);
+
+  assert.equal(confirmed, false);
 });

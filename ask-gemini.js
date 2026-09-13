@@ -16,11 +16,13 @@
 require("dotenv").config({ quiet: true });
 
 const { execFile } = require("child_process");
+const readline = require("node:readline");
 const { GoogleGenAI } = require("@google/genai");
 
 const TERMUX_NOTIFICATION_COMMAND = "termux-notification";
 const TERMUX_NOTIFICATION_TITLE = "Gemini";
 const TERMUX_SPEECH_TO_TEXT_COMMAND = "termux-speech-to-text";
+const VOICE_CONFIRMATION_ACCEPTED_VALUES = ["y", "yes"];
 const GEMINI_API_KEY_ENV_VAR_NAME = "GEMINI_API_KEY";
 const GEMINI_MODEL_NAME = "gemini-3.1-flash-lite";
 const GEMINI_AUTH_ERROR_HTTP_STATUS = 401;
@@ -83,6 +85,44 @@ function captureVoicePrompt(execFileFn = execFile) {
         return;
       }
       resolve(stdout.trim());
+    });
+  });
+}
+
+/**
+ * Prints the transcribed voice prompt and asks the user to confirm sending
+ * it to Gemini.
+ *
+ * @param {string} transcriptText - The transcript to confirm.
+ * @param {() => Promise<string>} [readLineFn] - Reads one line of raw stdin input; defaults to reading process.stdin, overridable in tests.
+ * @returns {Promise<boolean>} True if the user confirmed, false otherwise (including an empty transcript, which skips prompting).
+ */
+async function confirmPromptWithUser(transcriptText, readLineFn = readOneLineFromStdin) {
+  if (!transcriptText) {
+    console.log("Heard nothing, cancelling.");
+    return false;
+  }
+
+  console.log(`Heard: "${transcriptText}"`);
+  const rawAnswer = await readLineFn();
+  return VOICE_CONFIRMATION_ACCEPTED_VALUES.includes(rawAnswer.trim().toLowerCase());
+}
+
+/**
+ * Reads a single line of input from process.stdin.
+ *
+ * @returns {Promise<string>} The raw line entered by the user.
+ */
+function readOneLineFromStdin() {
+  const readlineInterface = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout,
+  });
+
+  return new Promise((resolve) => {
+    readlineInterface.question("Send this to Gemini? [y/N] ", (answer) => {
+      readlineInterface.close();
+      resolve(answer);
     });
   });
 }
@@ -163,6 +203,8 @@ module.exports = {
   describeGeminiApiError,
   captureVoicePrompt,
   TERMUX_SPEECH_TO_TEXT_COMMAND,
+  confirmPromptWithUser,
+  VOICE_CONFIRMATION_ACCEPTED_VALUES,
   displayResultToUser,
   GEMINI_MODEL_NAME,
 };
