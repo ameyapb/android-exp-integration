@@ -8,6 +8,33 @@ A personal project to let the user talk to Claude from a spare Android phone, st
 
 Hosted privately on GitHub at `github.com/ameyapb/android-exp-integration`. The code is developed on the user's PC and deployed by cloning/pulling the repo inside Termux on the phone (`pkg install nodejs git`, then `git clone`/`git pull`, then `npm install`).
 
+### Remote access to Termux from the PC
+
+Termux on the phone can be driven directly from a PC terminal over USB, instead of typing on the phone's touch keyboard. This is optional tooling for the user's own workflow, not part of the app itself.
+
+Phone side (Termux, one-time setup):
+```
+pkg install openssh
+passwd        # sets a password for SSH login
+```
+
+Phone side (each Termux session):
+```
+sshd          # starts the SSH server on port 8022
+whoami        # prints the Termux username, e.g. u0_a296
+```
+
+PC side (Windows, one-time setup): install Android platform-tools (`adb`) via `winget install Google.PlatformTools` or the Android developer site, and enable USB debugging in the phone's Developer Options. On first USB connection, authorize the PC from the prompt shown on the phone.
+
+PC side (each session):
+```
+adb devices                    # confirm the device shows as "device", not "unauthorized"
+adb forward tcp:8022 tcp:8022  # tunnel Termux's sshd port over the USB cable
+ssh -p 8022 <username>@localhost
+```
+
+The `sshd` start and the `adb forward` do not persist across phone reboots or Termux restarts and must be re-run each session.
+
 ## Claude Code Instructions
 
 These rules are carried over from the user's other projects (`cloud_kitchen`, `daily_tracker`, `transport_ledger`, `stock_algo`, `ks8_learning`, `dota_2_helper`, `context_compressor`) where they are applied consistently regardless of stack. They apply here from the start.
