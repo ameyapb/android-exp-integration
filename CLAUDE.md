@@ -4,9 +4,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-A personal project to let the user talk to Claude from a spare Android phone, starting with a minimal Termux CLI and growing over time toward Claude having more control over that phone. Single user (the repo owner), no external users. Current foundation: `ask-claude.js`, a Node.js CLI that sends a one-off text prompt to Claude and surfaces the reply as both stdout and a Termux Android notification.
+A personal project to let the user talk to an AI assistant from a spare Android phone, starting with a minimal Termux CLI and growing over time toward the assistant having more control over that phone. Single user (the repo owner), no external users. Current foundation: `ask-gemini.js`, a Node.js CLI that sends a one-off text prompt to Google's Gemini API and surfaces the reply as both stdout and a Termux Android notification.
 
-`ask-claude.js` calls Claude by shelling out to the Claude Code CLI (`claude -p`) rather than calling the Anthropic API directly, so usage is billed against the user's existing Claude Code subscription instead of requiring a separate metered API key. This means Termux needs the Claude Code CLI installed and logged in (`npm install -g @anthropic-ai/claude-code`, then `claude login`) alongside Node.js. This is intended for light, manual, personal use (occasional one-off questions triggered by hand) — not high-frequency or unattended automation, to stay within the spirit of a subscription intended for interactive coding-assistant use.
+`ask-gemini.js` calls Gemini's free tier directly over HTTPS via the official `@google/genai` SDK. An earlier version of this script shelled out to the Claude Code CLI to bill usage against a Claude Code subscription instead of a metered key, but the Claude Code CLI does not run in Termux on Android, and running a local model on the spare phone is too heavy for the hardware — Gemini's free tier avoids both problems while still not requiring a paid API key. This requires a `GEMINI_API_KEY` from Google AI Studio (https://aistudio.google.com/apikey), stored in a gitignored `.env` file, and is intended for light, manual, personal use.
 
 Hosted privately on GitHub at `github.com/ameyapb/android-exp-integration`. The code is developed on the user's PC and deployed by cloning/pulling the repo inside Termux on the phone (`pkg install nodejs git`, then `git clone`/`git pull`, then `npm install`).
 
@@ -88,12 +88,12 @@ These rules are carried over from the user's other projects (`cloud_kitchen`, `d
 
 ## Commands
 
-- `npm install -g @anthropic-ai/claude-code` — install the Claude Code CLI in Termux (once per phone/clone).
-- `claude login` — authenticate the Claude Code CLI with the user's subscription (once per phone/clone).
-- `node ask-claude.js "<prompt>"` — send a prompt to Claude and print/notify the reply.
+- `npm install` — install `@google/genai` and `dotenv` (once per phone/clone).
+- `node ask-gemini.js "<prompt>"` — send a prompt to Gemini and print/notify the reply.
+- `npm test` — run the test suite.
 
-No build step, no TypeScript, no lint/test tooling yet — add these when the project grows past a single script. No project-level npm dependencies currently.
+No build step, no TypeScript, no lint tooling yet — add these when the project grows past a single script.
 
 ## Architecture Overview
 
-Runs inside Termux on Android. `ask-claude.js` is a single-file CLI with two separated concerns: calling Claude by shelling out to the Claude Code CLI (`claude --print "<prompt>" --output-format text`, via `child_process.execFile`), and displaying the result (stdout plus a `termux-notification` shell-out that degrades gracefully if unavailable). Calling out to the CLI (rather than the Anthropic API directly) means Claude usage is billed against the user's existing Claude Code subscription instead of a separate metered API key; it requires the `claude` CLI to be installed and logged in on the phone. This is the foundation for giving Claude broader control over the phone in future iterations — document new components here as they're added.
+Runs inside Termux on Android. `ask-gemini.js` is a single-file CLI with two separated concerns: calling Gemini via the `@google/genai` SDK (`ai.models.generateContent({ model, contents })`), and displaying the result (stdout plus a `termux-notification` shell-out that degrades gracefully if unavailable). The API key is loaded from a gitignored `.env` file via `dotenv`, never hardcoded or logged. This is the foundation for giving the assistant broader control over the phone in future iterations — document new components here as they're added.
