@@ -4,7 +4,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-A personal project to let the user talk to Claude from a spare Android phone, starting with a minimal Termux CLI and growing over time toward Claude having more control over that phone. Single user (the repo owner), no external users. Current foundation: `ask-claude.js`, a Node.js CLI that sends a one-off text prompt to the Claude API and surfaces the reply as both stdout and a Termux Android notification.
+A personal project to let the user talk to Claude from a spare Android phone, starting with a minimal Termux CLI and growing over time toward Claude having more control over that phone. Single user (the repo owner), no external users. Current foundation: `ask-claude.js`, a Node.js CLI that sends a one-off text prompt to Claude and surfaces the reply as both stdout and a Termux Android notification.
+
+`ask-claude.js` calls Claude by shelling out to the Claude Code CLI (`claude -p`) rather than calling the Anthropic API directly, so usage is billed against the user's existing Claude Code subscription instead of requiring a separate metered API key. This means Termux needs the Claude Code CLI installed and logged in (`npm install -g @anthropic-ai/claude-code`, then `claude login`) alongside Node.js. This is intended for light, manual, personal use (occasional one-off questions triggered by hand) — not high-frequency or unattended automation, to stay within the spirit of a subscription intended for interactive coding-assistant use.
 
 Hosted privately on GitHub at `github.com/ameyapb/android-exp-integration`. The code is developed on the user's PC and deployed by cloning/pulling the repo inside Termux on the phone (`pkg install nodejs git`, then `git clone`/`git pull`, then `npm install`).
 
@@ -86,12 +88,12 @@ These rules are carried over from the user's other projects (`cloud_kitchen`, `d
 
 ## Commands
 
-- `npm install` — install dependencies (`@anthropic-ai/sdk`, `dotenv`).
-- Copy `.env.example` to `.env` and fill in `ANTHROPIC_API_KEY` (once, per machine/clone).
+- `npm install -g @anthropic-ai/claude-code` — install the Claude Code CLI in Termux (once per phone/clone).
+- `claude login` — authenticate the Claude Code CLI with the user's subscription (once per phone/clone).
 - `node ask-claude.js "<prompt>"` — send a prompt to Claude and print/notify the reply.
 
-No build step, no TypeScript, no lint/test tooling yet — add these when the project grows past a single script.
+No build step, no TypeScript, no lint/test tooling yet — add these when the project grows past a single script. No project-level npm dependencies currently.
 
 ## Architecture Overview
 
-Runs inside Termux on Android. `ask-claude.js` is a single-file CLI with three separated concerns: reading/validating `ANTHROPIC_API_KEY` (loaded from a gitignored `.env` file via `dotenv`, or from the shell environment), calling the Claude API via `@anthropic-ai/sdk`, and displaying the result (stdout plus a `termux-notification` shell-out that degrades gracefully if unavailable). The model name is a top-of-file constant (`CLAUDE_MODEL_NAME`, currently `claude-haiku-4-5-20251001`) swappable for `claude-sonnet-5` for higher-quality answers at higher cost. This is the foundation for giving Claude broader control over the phone in future iterations — document new components here as they're added.
+Runs inside Termux on Android. `ask-claude.js` is a single-file CLI with two separated concerns: calling Claude by shelling out to the Claude Code CLI (`claude --print "<prompt>" --output-format text`, via `child_process.execFile`), and displaying the result (stdout plus a `termux-notification` shell-out that degrades gracefully if unavailable). Calling out to the CLI (rather than the Anthropic API directly) means Claude usage is billed against the user's existing Claude Code subscription instead of a separate metered API key; it requires the `claude` CLI to be installed and logged in on the phone. This is the foundation for giving Claude broader control over the phone in future iterations — document new components here as they're added.
