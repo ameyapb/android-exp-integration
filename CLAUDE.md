@@ -6,6 +6,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 A personal project to let the user talk to Claude from a spare Android phone, starting with a minimal Termux CLI and growing over time toward Claude having more control over that phone. Single user (the repo owner), no external users. Current foundation: `ask-claude.js`, a Node.js CLI that sends a one-off text prompt to the Claude API and surfaces the reply as both stdout and a Termux Android notification.
 
+Hosted privately on GitHub at `github.com/ameyapb/android-exp-integration`. The code is developed on the user's PC and deployed by cloning/pulling the repo inside Termux on the phone (`pkg install nodejs git`, then `git clone`/`git pull`, then `npm install`).
+
 ## Claude Code Instructions
 
 These rules are carried over from the user's other projects (`cloud_kitchen`, `daily_tracker`, `transport_ledger`, `stock_algo`, `ks8_learning`, `dota_2_helper`, `context_compressor`) where they are applied consistently regardless of stack. They apply here from the start.
