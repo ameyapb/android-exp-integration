@@ -32,6 +32,7 @@ const GEMINI_API_KEY_ENV_VAR_NAME = "GEMINI_API_KEY";
 const GEMINI_MODEL_NAME = "gemini-3.1-flash-lite";
 const GEMINI_AUTH_ERROR_HTTP_STATUS = 401;
 const GEMINI_RATE_LIMIT_HTTP_STATUS = 429;
+const WIDGET_SESSION_CLOSE_DELAY_MS = 3000;
 
 /**
  * Sends a single user prompt to Gemini and returns the text reply.
@@ -303,6 +304,7 @@ async function main() {
     console.error('Usage: node ask-gemini.js "your prompt here"');
     console.error(`   or: node ask-gemini.js ${VOICE_FLAG_NAME}`);
     process.exitCode = 1;
+    await new Promise((resolve) => setTimeout(resolve, WIDGET_SESSION_CLOSE_DELAY_MS));
     return;
   }
 
@@ -311,6 +313,7 @@ async function main() {
       `Error: ${GEMINI_API_KEY_ENV_VAR_NAME} is not set. Add it to a .env file in this directory (see .env.example).`,
     );
     process.exitCode = 1;
+    await new Promise((resolve) => setTimeout(resolve, WIDGET_SESSION_CLOSE_DELAY_MS));
     return;
   }
 
@@ -325,6 +328,7 @@ async function main() {
       console.error(`Error: ${voiceError.message}`);
       process.exitCode = 1;
     }
+    await new Promise((resolve) => setTimeout(resolve, WIDGET_SESSION_CLOSE_DELAY_MS));
     return;
   }
 
@@ -334,10 +338,12 @@ async function main() {
   } catch (apiError) {
     console.error(`Error: ${apiError.message}`);
     process.exitCode = 1;
+    await new Promise((resolve) => setTimeout(resolve, WIDGET_SESSION_CLOSE_DELAY_MS));
     return;
   }
 
   await displayResultToUser(geminiResponseText);
+  await new Promise((resolve) => setTimeout(resolve, WIDGET_SESSION_CLOSE_DELAY_MS));
 }
 
 if (require.main === module) {
