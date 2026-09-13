@@ -139,24 +139,22 @@ async function confirmPromptWithUser(transcriptText, readLineFn = readOneLineFro
 }
 
 /**
- * Shows the transcript as hint text in a native termux-dialog text input and
- * asks the user to confirm before sending it to Gemini. termux-dialog's
- * text widget only supports hint (placeholder) text via Android's
- * EditText.setHint, not real pre-filled editable content, so the box starts
- * empty: tapping OK with nothing typed confirms the original transcript
- * unchanged, while typing a full replacement and tapping OK sends that
- * instead. Tapping Cancel discards the transcript.
+ * Shows the transcript as the read-only, scrollable body of a native
+ * termux-dialog confirm dialog and asks the user to confirm before sending
+ * it to Gemini. Unlike termux-dialog's text widget, the confirm widget
+ * renders the body as a plain TextView rather than an EditText, so the full
+ * transcript stays visible and scrollable and cannot be tapped away.
  *
  * @param {string} transcriptText - The transcript to confirm.
  * @param {typeof execFile} [execFileFn] - The execFile implementation to use; defaults to Node's child_process.execFile, overridable in tests.
- * @returns {Promise<{ confirmed: boolean, promptText: string }>} Whether the user confirmed, and the text to send (the typed replacement if any, otherwise the original transcript).
+ * @returns {Promise<boolean>} Whether the user tapped OK.
  * @throws {Error} If termux-dialog is unavailable or returns unparseable output; callers should fall back to confirmPromptWithUser on failure.
  */
 function confirmPromptWithUserViaDialog(transcriptText, execFileFn = execFile) {
   return new Promise((resolve, reject) => {
     execFileFn(
       TERMUX_DIALOG_COMMAND,
-      ["text", "-t", TERMUX_DIALOG_TITLE, "-i", transcriptText],
+      ["confirm", "-t", TERMUX_DIALOG_TITLE, "-i", transcriptText],
       (execError, stdout) => {
         if (execError) {
           reject(new Error(`${TERMUX_DIALOG_COMMAND} unavailable or failed: ${execError.message}`));
@@ -171,13 +169,7 @@ function confirmPromptWithUserViaDialog(transcriptText, execFileFn = execFile) {
           return;
         }
 
-        if (parsedResult.code !== TERMUX_DIALOG_CONFIRMED_CODE) {
-          resolve({ confirmed: false, promptText: "" });
-          return;
-        }
-
-        const typedText = (parsedResult.text || "").trim();
-        resolve({ confirmed: true, promptText: typedText || transcriptText });
+        resolve(parsedResult.code === TERMUX_DIALOG_CONFIRMED_CODE);
       },
     );
   });
@@ -192,7 +184,7 @@ function confirmPromptWithUserViaDialog(transcriptText, execFileFn = execFile) {
  * @param {object} [dependencies] - Injectable dependencies, overridable in tests.
  * @param {typeof confirmPromptWithUserViaDialog} [dependencies.confirmPromptWithUserViaDialogFn]
  * @param {typeof confirmPromptWithUser} [dependencies.confirmPromptWithUserFn]
- * @returns {Promise<{ confirmed: boolean, promptText: string }>} Whether the user confirmed, and the (possibly edited) text to send.
+ * @returns {Promise<boolean>} Whether the user confirmed.
  */
 async function confirmPromptWithFallback(
   transcriptText,
@@ -203,15 +195,14 @@ async function confirmPromptWithFallback(
 ) {
   if (!transcriptText) {
     console.log("Heard nothing, cancelling.");
-    return { confirmed: false, promptText: "" };
+    return false;
   }
 
   try {
     return await confirmPromptWithUserViaDialogFn(transcriptText);
   } catch (dialogError) {
     console.warn(`Warning: falling back to text confirmation (${dialogError.message})`);
-    const confirmed = await confirmPromptWithUserFn(transcriptText);
-    return { confirmed, promptText: transcriptText };
+    return await confirmPromptWithUserFn(transcriptText);
   }
 }
 
@@ -284,14 +275,14 @@ async function runVoiceFlow(
   } = {},
 ) {
   const transcriptText = await captureVoicePromptFn();
-  const { confirmed, promptText } = await confirmPromptWithFallbackFn(transcriptText);
+  const confirmed = await confirmPromptWithFallbackFn(transcriptText);
 
   if (!confirmed) {
     console.log("Cancelled.");
     return;
   }
 
-  const geminiResponseText = await sendPromptToGemini(promptText, geminiClient);
+  const geminiResponseText = await sendPromptToGemini(transcriptText, geminiClient);
   await displayResultToUserFn(geminiResponseText);
   await speakResponseAloudFn(geminiResponseText);
 }
