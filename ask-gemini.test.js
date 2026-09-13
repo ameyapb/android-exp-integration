@@ -12,6 +12,7 @@ const {
   TERMUX_DIALOG_TITLE,
   runVoiceFlow,
   GEMINI_MODEL_NAME,
+  GEMINI_SYSTEM_INSTRUCTION,
   speakResponseAloud,
   TERMUX_TTS_SPEAK_COMMAND,
 } = require("./ask-gemini.js");
@@ -34,6 +35,7 @@ test("sendPromptToGemini sends the prompt to the configured model and returns th
   assert.deepEqual(recordedCalls[0], {
     model: GEMINI_MODEL_NAME,
     contents: "what's 2+2",
+    config: { systemInstruction: GEMINI_SYSTEM_INSTRUCTION },
   });
 });
 

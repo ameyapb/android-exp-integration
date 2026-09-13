@@ -33,6 +33,8 @@ const VOICE_CONFIRMATION_ACCEPTED_VALUES = ["y", "yes"];
 const VOICE_FLAG_NAME = "--voice";
 const GEMINI_API_KEY_ENV_VAR_NAME = "GEMINI_API_KEY";
 const GEMINI_MODEL_NAME = "gemini-3.1-flash-lite";
+const GEMINI_SYSTEM_INSTRUCTION =
+  "Reply in plain spoken prose only, as if answering aloud. Do not use markdown, headers, bullet points, numbered lists, asterisks, or any other formatting or special characters. Keep the reply short and conversational.";
 const GEMINI_AUTH_ERROR_HTTP_STATUS = 401;
 const GEMINI_RATE_LIMIT_HTTP_STATUS = 429;
 const WIDGET_SESSION_CLOSE_DELAY_MS = 3000;
@@ -51,6 +53,7 @@ async function sendPromptToGemini(userPromptText, geminiClient) {
     response = await geminiClient.models.generateContent({
       model: GEMINI_MODEL_NAME,
       contents: userPromptText,
+      config: { systemInstruction: GEMINI_SYSTEM_INSTRUCTION },
     });
   } catch (apiError) {
     throw new Error(describeGeminiApiError(apiError));
@@ -365,6 +368,7 @@ module.exports = {
   VOICE_FLAG_NAME,
   displayResultToUser,
   GEMINI_MODEL_NAME,
+  GEMINI_SYSTEM_INSTRUCTION,
   speakResponseAloud,
   TERMUX_TTS_SPEAK_COMMAND,
 };
