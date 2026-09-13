@@ -13,7 +13,7 @@
  *   node ask-gemini.js "what's 2+2"
  */
 
-require("dotenv").config();
+require("dotenv").config({ quiet: true });
 
 const { execFile } = require("child_process");
 const { GoogleGenAI } = require("@google/genai");
@@ -21,7 +21,7 @@ const { GoogleGenAI } = require("@google/genai");
 const TERMUX_NOTIFICATION_COMMAND = "termux-notification";
 const TERMUX_NOTIFICATION_TITLE = "Gemini";
 const GEMINI_API_KEY_ENV_VAR_NAME = "GEMINI_API_KEY";
-const GEMINI_MODEL_NAME = "gemini-3.6-flash";
+const GEMINI_MODEL_NAME = "gemini-3.1-flash-lite";
 const GEMINI_AUTH_ERROR_HTTP_STATUS = 401;
 const GEMINI_RATE_LIMIT_HTTP_STATUS = 429;
 
