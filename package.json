@@ -2,9 +2,14 @@
   "name": "phone-app-exp",
   "version": "1.0.0",
   "private": true,
-  "description": "Personal side project: talk to Claude from a spare Android phone via Termux.",
-  "main": "ask-claude.js",
+  "description": "Personal side project: talk to Gemini from a spare Android phone via Termux.",
+  "main": "ask-gemini.js",
   "scripts": {
-    "ask": "node ask-claude.js"
+    "ask": "node ask-gemini.js",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "@google/genai": "^2.22.0",
+    "dotenv": "^17.4.2"
   }
 }

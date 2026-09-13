@@ -1,0 +1,72 @@
+const test = require("node:test");
+const assert = require("node:assert/strict");
+const {
+  sendPromptToGemini,
+  describeGeminiApiError,
+  GEMINI_MODEL_NAME,
+} = require("./ask-gemini.js");
+
+test("sendPromptToGemini sends the prompt to the configured model and returns the trimmed text reply", async () => {
+  const recordedCalls = [];
+  const fakeGeminiClient = {
+    models: {
+      generateContent: async (request) => {
+        recordedCalls.push(request);
+        return { text: "  4  " };
+      },
+    },
+  };
+
+  const reply = await sendPromptToGemini("what's 2+2", fakeGeminiClient);
+
+  assert.equal(reply, "4");
+  assert.equal(recordedCalls.length, 1);
+  assert.deepEqual(recordedCalls[0], {
+    model: GEMINI_MODEL_NAME,
+    contents: "what's 2+2",
+  });
+});
+
+test("sendPromptToGemini surfaces a readable error when the Gemini API call fails", async () => {
+  const apiFailure = Object.assign(new Error("invalid API key"), {
+    status: 401,
+  });
+  const fakeGeminiClient = {
+    models: {
+      generateContent: async () => {
+        throw apiFailure;
+      },
+    },
+  };
+
+  await assert.rejects(
+    () => sendPromptToGemini("hello", fakeGeminiClient),
+    (thrownError) => {
+      assert.match(thrownError.message, /Gemini API error/);
+      assert.match(thrownError.message, /invalid API key/);
+      return true;
+    },
+  );
+});
+
+test("describeGeminiApiError reports a clear message for an authentication failure", () => {
+  const apiFailure = Object.assign(new Error("API key not valid"), {
+    status: 401,
+  });
+
+  const message = describeGeminiApiError(apiFailure);
+
+  assert.match(message, /Gemini API error/);
+  assert.match(message, /API key not valid/);
+});
+
+test("describeGeminiApiError reports a clear message for a rate limit failure", () => {
+  const apiFailure = Object.assign(new Error("Resource exhausted"), {
+    status: 429,
+  });
+
+  const message = describeGeminiApiError(apiFailure);
+
+  assert.match(message, /Gemini API error/);
+  assert.match(message, /Resource exhausted/);
+});
