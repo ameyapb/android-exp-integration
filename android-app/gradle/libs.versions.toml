@@ -10,6 +10,8 @@ activityCompose = "1.12.4"
 hiltNavigationCompose = "1.4.0"
 coroutines = "1.11.0"
 junit = "4.13.2"
+mockitoKotlin = "6.3.0"
+robolectric = "4.17"
 
 [libraries]
 genai-kotlin = { group = "com.google.genai", name = "google-genai-kotlin", version.ref = "genai" }
@@ -23,6 +25,8 @@ hilt-navigation-compose = { group = "androidx.hilt", name = "hilt-navigation-com
 coroutines-android = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-android", version.ref = "coroutines" }
 coroutines-test = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-test", version.ref = "coroutines" }
 junit = { group = "junit", name = "junit", version.ref = "junit" }
+mockito-kotlin = { group = "org.mockito.kotlin", name = "mockito-kotlin", version.ref = "mockitoKotlin" }
+robolectric = { group = "org.robolectric", name = "robolectric", version.ref = "robolectric" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

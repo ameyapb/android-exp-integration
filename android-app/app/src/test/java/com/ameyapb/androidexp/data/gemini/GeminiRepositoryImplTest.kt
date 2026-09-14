@@ -2,6 +2,8 @@ package com.ameyapb.androidexp.data.gemini
 
 import com.google.genai.kotlin.ClientException
 import com.google.genai.kotlin.ServerException
+import java.io.IOException
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -56,5 +58,23 @@ class GeminiRepositoryImplTest {
         val message = result.exceptionOrNull()?.message.orEmpty()
         assertTrue(message.startsWith("Gemini API error:"))
         assertTrue(message.contains("boom"))
+    }
+
+    @Test
+    fun `sendPrompt maps a network failure to a generic error message`() = runTest {
+        fakeGeminiClient.errorToThrow = IOException("Unable to resolve host")
+
+        val result = repository.sendPrompt("prompt")
+
+        val message = result.exceptionOrNull()?.message.orEmpty()
+        assertTrue(message.startsWith("Gemini API error:"))
+        assertTrue(message.contains("Unable to resolve host"))
+    }
+
+    @Test(expected = CancellationException::class)
+    fun `sendPrompt rethrows coroutine cancellation instead of wrapping it`() = runTest {
+        fakeGeminiClient.errorToThrow = CancellationException("scope cancelled")
+
+        repository.sendPrompt("prompt")
     }
 }

@@ -80,4 +80,6 @@ dependencies {
 
     testImplementation(libs.junit)
     testImplementation(libs.coroutines.test)
+    testImplementation(libs.mockito.kotlin)
+    testImplementation(libs.robolectric)
 }
