@@ -10,6 +10,31 @@ A personal project to let the user talk to an AI assistant from a spare Android 
 
 Hosted privately on GitHub at `github.com/ameyapb/android-exp-integration`. The code is developed on the user's PC and deployed by cloning/pulling the repo inside Termux on the phone (`pkg install nodejs git`, then `git clone`/`git pull`, then `npm install`).
 
+### Future direction: native Android app
+
+The long-term goal is an assistant with real control over the phone: triggering actions/automations, reading phone state and context, and eventually running as an always-on background agent, not just a one-shot request/reply from a terminal shortcut. The Termux CLI (`ask-gemini.js`) is the current foundation but is understood to be a stepping stone, not the end state.
+
+Decision: the next major iteration will be rebuilt as a **native Android app in Kotlin**, not Termux plus more `termux-*` commands, and not an Expo/React Native app.
+
+Why native Kotlin over Expo: Expo's managed workflow only exposes what's in the Expo SDK, and the capabilities this project ultimately needs — `NotificationListenerService` (reading other apps' notifications), `AccessibilityService` (observing/acting on other apps, how automation tools like Tasker work), and a true `ForegroundService` for durable background operation — all require native modules via a config plugin (ejecting from Expo Go). That native code is identical to what a pure-native app would write, just with an added JS bridge, an extra plugin/prebuild compatibility surface, and RN version churn on top. Native Kotlin gives every capability Expo could eventually reach, with strictly less complexity, so there is no capability upside to starting in Expo — only faster initial UI iteration, which does not outweigh avoiding a framework migration later.
+
+Why native Kotlin over the current Termux approach: Termux is an unprivileged Linux userland app. It can only reach phone features that Termux:API's helper app explicitly wraps and shells out to (`termux-notification`, `termux-location`, etc.) — a fixed menu it does not control. It cannot register as a `NotificationListenerService` or `AccessibilityService`, run a proper `ForegroundService`, integrate with `WorkManager`/`AlarmManager`, or declare the sensitive permissions those require, since those all need an installed app with its own manifest and permission declarations.
+
+This is a platform decision — see `roadmap.md` for what gets built and in what order.
+
+### Native app architecture and tech stack
+
+The native app is built to production-quality engineering standards from Phase 1 onward, even though it has one user — this is a deliberate choice, not scope creep, so the codebase doesn't need a rewrite once it grows. Concretely:
+
+- **Layered architecture**: UI / (optional) domain / data layers, per Google's official Android architecture guidance (`developer.android.com/topic/architecture/recommendations`). The domain layer is added only once business logic needs to be shared across more than one ViewModel — not created speculatively.
+- **UI layer**: Jetpack Compose, MVVM with unidirectional data flow — ViewModels expose state via `StateFlow`, the UI sends actions back via method calls, never the reverse.
+- **Data layer**: repository pattern wraps every external call (starting with the Gemini API), so UI/ViewModels never talk to a data source directly. The Gemini call goes through the official `google-genai-kotlin` SDK (`com.google.genai:google-genai-kotlin`, Google's first-party Kotlin/Android client released 2026-09-03) — the direct Kotlin analog of the `@google/genai` SDK `ask-gemini.js` already uses — rather than hand-rolled HTTP calls.
+- **Dependency injection**: Hilt, constructor injection throughout.
+- **Module strategy**: a single Gradle module now, with internal packages laid out by layer-then-feature (`ui/`, `domain/`, `data/`, `di/`, with feature subpackages under `ui/`) so the boundaries already match Google's modularization guide (`developer.android.com/topic/modularization`). Split into real Gradle `:feature:*`/`:core:*` modules only once the app has enough independent features to justify the build-complexity cost — not before. This mirrors the YAGNI principle already in this file: production-quality structure now, premature multi-module ceremony deferred.
+- **Testing**: JUnit for ViewModels and repositories, fakes preferred over mocks (matches the Testing section below), Compose UI tests added once screens stabilize.
+- **CI**: a GitHub Actions workflow runs build, lint, and test on every push, since the repo is already hosted on GitHub.
+- **Security note on the API key**: Google's own SDK guidance warns against embedding API keys in public-facing client APKs, since they can be extracted by reverse-engineering, and recommends Firebase AI Logic with App Check for that case. This app is sideloaded for personal use and never distributed publicly, so local-config key storage (mirroring the current `.env` approach, e.g. `local.properties` read into `BuildConfig`, gitignored) is an accepted risk for now. Revisit with Firebase AI Logic if the app is ever distributed beyond the user's own device.
+
 ### Remote access to Termux from the PC
 
 Termux on the phone can be driven directly from a PC terminal over USB, instead of typing on the phone's touch keyboard. This is optional tooling for the user's own workflow, not part of the app itself.
@@ -35,7 +60,7 @@ adb forward tcp:8022 tcp:8022  # tunnel Termux's sshd port over the USB cable
 ssh -p 8022 <username>@localhost
 ```
 
-The `sshd` start and the `adb forward` do not persist across phone reboots or Termux restarts and must be re-run each session.
+The `sshd` start and the `adb forward` do not persist across phone reboots or Termux restarts and must be re-run each session. Unplugging and reconnecting the USB cable also drops the `adb forward` (confirmed by direct testing: `adb forward --list` came back empty after a replug, causing `ssh: connect to host localhost port 8022: Connection refused`), even if `sshd` is still running on the phone and `adb devices` still shows the device as authorized. There is no way to make the forward persist across a replug; re-run `adb forward tcp:8022 tcp:8022` after every USB reconnect, and only re-run `sshd` on the phone if `pgrep sshd` shows it's no longer running.
 
 ## Claude Code Instructions
 
@@ -99,3 +124,16 @@ No build step, no TypeScript, no lint tooling yet — add these when the project
 ## Architecture Overview
 
 Runs inside Termux on Android. `ask-gemini.js` is a single-file CLI with separated concerns: calling Gemini via the `@google/genai` SDK (`ai.models.generateContent({ model, contents })`), capturing a spoken prompt via Termux:API's `termux-speech-to-text` (`captureVoicePrompt`, used when the `--voice` flag is passed), confirming a voice transcript with the user before sending it — preferring a native Android dialog via Termux:API's `termux-dialog` (`confirmPromptWithUserViaDialog`, wrapped by `confirmPromptWithFallback`), which shows the full transcript as the read-only, scrollable body of a `confirm`-type dialog (not the `text` widget's editable field, which only supports single-line hint/placeholder text and can't display or scroll a long transcript) with Yes/No buttons (note: termux-dialog's confirm widget always reports `code: 0` for both buttons — the tapped button is only distinguishable via the JSON `text` field, `"yes"` or `"no"`): Yes sends the transcript unchanged, No discards it; falls back to the original stdin `y/N` prompt (`confirmPromptWithUser`) if `termux-dialog` is unavailable — displaying the result (stdout plus a `termux-notification` shell-out that degrades gracefully if unavailable), and, in `--voice` mode only, speaking the reply aloud via Termux:API's `termux-tts-speak` (`speakResponseAloud`, which likewise degrades gracefully if unavailable). The API key is loaded from a gitignored `.env` file via `dotenv`, never hardcoded or logged. `shortcuts/ask-gemini-voice.sh` is a Termux:Widget shortcut script that runs `node ask-gemini.js --voice`, deployed with `cp` (not symlinked, see the Termux:Widget gotcha above) into `~/.shortcuts/` on the phone for a one-tap, no-typing voice query from the home screen. Every run through `main()`, in both plain-prompt and `--voice` mode, pauses briefly (`WIDGET_SESSION_CLOSE_DELAY_MS`) after displaying its result or error so the terminal session launched by the Termux:Widget shortcut always exits rather than lingering open. This is the foundation for giving the assistant broader control over the phone in future iterations — document new components here as they're added.
+
+### Native Android app (`android-app/`)
+
+Phase 1 native app per `roadmap.md`, living alongside the untouched Termux CLI at the repo root. Single Gradle module (`android-app/app`), package `com.ameyapb.androidexp`, built with AGP 9's built-in Kotlin support (no separate `org.jetbrains.kotlin.android` plugin), the `org.jetbrains.kotlin.plugin.compose` Compose compiler plugin, and `com.android.legacy-kapt` for Hilt's annotation processor (`org.jetbrains.kotlin.kapt` is incompatible with built-in Kotlin; Hilt's Gradle plugin needs 2.59.2+ for AGP 9, hence Hilt 2.60.1 here). Dependency versions are pinned in `android-app/gradle/libs.versions.toml`.
+
+- `GeminiApp` (`@HiltAndroidApp`) and `MainActivity` (`@AndroidEntryPoint`, single Activity hosting Compose content, requests `POST_NOTIFICATIONS` on launch on Android 13+ only) sit at the package root.
+- `ui/askgemini/`: `AskGeminiScreen` (prompt field, send button, reply area), `AskGeminiViewModel` (`@HiltViewModel`, exposes `StateFlow<AskGeminiUiState>`, unidirectional data flow), `AskGeminiUiState`.
+- `data/gemini/`: `GeminiClient`/`GeminiClientImpl` thinly wrap the official `google-genai-kotlin` SDK's `Client.models.generateContent` call; `GeminiRepository`/`GeminiRepositoryImpl` wrap `GeminiClient` and map SDK failures (`GenAiApiException.code`) into the same auth/rate-limit/generic messages as the script's `describeGeminiApiError` (401 → check the API key, 429 → free-tier rate limit, else generic); `GeminiConstants` holds `GEMINI_MODEL_NAME`/`GEMINI_SYSTEM_INSTRUCTION`, kept identical to the script's for output parity.
+- `data/notification/`: `GeminiNotifier`/`GeminiNotifierImpl` wrap `NotificationManagerCompat`, posting a "Gemini"-titled notification (matching `TERMUX_NOTIFICATION_TITLE`) that degrades silently if notifications are disabled or denied — mirroring the script's graceful degradation around `termux-notification`.
+- `di/AppModule.kt`: Hilt bindings for the three interfaces above, plus `provideGenAiClient()`, which fails fast with a clear message if `BuildConfig.GEMINI_API_KEY` is blank rather than surfacing an opaque SDK error on first send.
+- The API key is loaded from a gitignored `android-app/local.properties` (see `local.properties.example`) into `BuildConfig.GEMINI_API_KEY`, mirroring the script's `.env` handling — never hardcoded or logged.
+- Unit tests (JUnit + `kotlinx-coroutines-test`, fakes over mocks) cover `GeminiRepositoryImpl` and `AskGeminiViewModel`; `.github/workflows/android-ci.yml` runs `./gradlew build lint testDebugUnitTest` on pushes/PRs touching `android-app/**`.
+- No launcher icon resource is set (manifest omits `android:icon`) — accepted simplification for a sideloaded personal app.
