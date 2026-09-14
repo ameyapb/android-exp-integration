@@ -16,12 +16,12 @@ val localProperties = Properties().apply {
 
 android {
     namespace = "com.ameyapb.androidexp"
-    compileSdk = 36
+    compileSdk = 37
 
     defaultConfig {
         applicationId = "com.ameyapb.androidexp"
         minSdk = 31
-        targetSdk = 36
+        targetSdk = 37
         versionCode = 1
         versionName = "1.0"
 
