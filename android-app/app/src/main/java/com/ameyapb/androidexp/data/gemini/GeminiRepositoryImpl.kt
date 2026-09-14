@@ -1,6 +1,5 @@
 package com.ameyapb.androidexp.data.gemini
 
-import com.google.genai.kotlin.GenAiApiException
 import kotlinx.coroutines.CancellationException
 import javax.inject.Inject
 
@@ -23,7 +22,7 @@ class GeminiRepositoryImpl @Inject constructor(
 }
 
 internal fun describeGeminiError(error: Exception): String {
-    if (error !is GenAiApiException) {
+    if (error !is GeminiHttpException) {
         return "Gemini API error: ${error.message}"
     }
     return when (error.code) {

@@ -1,7 +1,5 @@
 package com.ameyapb.androidexp.data.gemini
 
-import com.google.genai.kotlin.ClientException
-import com.google.genai.kotlin.ServerException
 import java.io.IOException
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.test.runTest
@@ -9,6 +7,10 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
+
+private const val UNAUTHENTICATED_STATUS = 401
+private const val RATE_LIMITED_STATUS = 429
+private const val SERVER_ERROR_STATUS = 500
 
 class GeminiRepositoryImplTest {
     private lateinit var fakeGeminiClient: FakeGeminiClient
@@ -31,7 +33,7 @@ class GeminiRepositoryImplTest {
 
     @Test
     fun `sendPrompt maps a 401 to an auth error message`() = runTest {
-        fakeGeminiClient.errorToThrow = ClientException(401, "UNAUTHENTICATED", "bad key")
+        fakeGeminiClient.errorToThrow = GeminiHttpException(UNAUTHENTICATED_STATUS, "bad key")
 
         val result = repository.sendPrompt("prompt")
 
@@ -41,7 +43,7 @@ class GeminiRepositoryImplTest {
 
     @Test
     fun `sendPrompt maps a 429 to a rate-limit error message`() = runTest {
-        fakeGeminiClient.errorToThrow = ClientException(429, "RESOURCE_EXHAUSTED", "too many requests")
+        fakeGeminiClient.errorToThrow = GeminiHttpException(RATE_LIMITED_STATUS, "too many requests")
 
         val result = repository.sendPrompt("prompt")
 
@@ -51,7 +53,7 @@ class GeminiRepositoryImplTest {
 
     @Test
     fun `sendPrompt maps a 500 to a generic error message`() = runTest {
-        fakeGeminiClient.errorToThrow = ServerException(500, "INTERNAL", "boom")
+        fakeGeminiClient.errorToThrow = GeminiHttpException(SERVER_ERROR_STATUS, "boom")
 
         val result = repository.sendPrompt("prompt")
 

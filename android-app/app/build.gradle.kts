@@ -61,8 +61,6 @@ android {
 }
 
 dependencies {
-    implementation(libs.genai.kotlin)
-
     implementation(platform(libs.compose.bom))
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.ui:ui-tooling-preview")
@@ -80,6 +78,5 @@ dependencies {
 
     testImplementation(libs.junit)
     testImplementation(libs.coroutines.test)
-    testImplementation(libs.mockito.kotlin)
     testImplementation(libs.robolectric)
 }

@@ -7,13 +7,17 @@ import com.ameyapb.androidexp.data.gemini.GeminiRepository
 import com.ameyapb.androidexp.data.gemini.GeminiRepositoryImpl
 import com.ameyapb.androidexp.data.notification.GeminiNotifier
 import com.ameyapb.androidexp.data.notification.GeminiNotifierImpl
-import com.google.genai.kotlin.Client
 import dagger.Binds
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
+import javax.inject.Qualifier
 import javax.inject.Singleton
+
+@Qualifier
+@Retention(AnnotationRetention.BINARY)
+annotation class GeminiApiKey
 
 @Module
 @InstallIn(SingletonComponent::class)
@@ -34,12 +38,13 @@ abstract class AppModule {
     companion object {
         @Provides
         @Singleton
-        fun provideGenAiClient(): Client {
+        @GeminiApiKey
+        fun provideGeminiApiKey(): String {
             check(BuildConfig.GEMINI_API_KEY.isNotBlank()) {
                 "GEMINI_API_KEY is not set. Add it to android-app/local.properties " +
                     "(see local.properties.example)."
             }
-            return Client(apiKey = BuildConfig.GEMINI_API_KEY)
+            return BuildConfig.GEMINI_API_KEY
         }
     }
 }
