@@ -1,7 +1,7 @@
 [versions]
 agp = "9.4.0"
 kotlin = "2.4.20"
-hilt = "2.57.1"
+hilt = "2.60.1"
 genai = "1.1.0"
 composeBom = "2026.08.00"
 coreKtx = "1.17.0"
@@ -26,6 +26,6 @@ junit = { group = "junit", name = "junit", version.ref = "junit" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
-kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
-kotlin-kapt = { id = "org.jetbrains.kotlin.kapt", version.ref = "kotlin" }
+kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
+legacy-kapt = { id = "com.android.legacy-kapt", version.ref = "agp" }
 hilt = { id = "com.google.dagger.hilt.android", version.ref = "hilt" }
