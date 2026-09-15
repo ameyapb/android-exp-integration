@@ -28,7 +28,7 @@
 **Interfaces:**
 - Produces: `androidx.compose.material.icons.Icons` / `androidx.compose.material.icons.filled.*` available for later tasks to import.
 
-- [ ] **Step 1: Add the library entry to the version catalog**
+- [x] **Step 1: Add the library entry to the version catalog**
 
 In `android-app/gradle/libs.versions.toml`, add to the `[libraries]` block (keep alphabetical grouping consistent with the existing entries, insert after `hilt-navigation-compose`):
 
@@ -38,7 +38,7 @@ material-icons-core = { group = "androidx.compose.material", name = "material-ic
 
 No `version.ref` — this artifact's version is managed by the `compose-bom` platform already declared in `build.gradle.kts`, same as `androidx.compose.material3:material3` and `androidx.compose.ui:ui` are today.
 
-- [ ] **Step 2: Add the dependency in the app module**
+- [x] **Step 2: Add the dependency in the app module**
 
 In `android-app/app/build.gradle.kts`, add this line in the `dependencies` block, directly after `implementation("androidx.compose.material3:material3")`:
 
@@ -46,12 +46,12 @@ In `android-app/app/build.gradle.kts`, add this line in the `dependencies` block
     implementation(libs.material.icons.core)
 ```
 
-- [ ] **Step 3: Verify the project builds with the new dependency**
+- [x] **Step 3: Verify the project builds with the new dependency**
 
 Run: `cd android-app && ./gradlew build`
 Expected: `BUILD SUCCESSFUL` — confirms the version catalog entry resolves correctly against the Compose BOM.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add android-app/gradle/libs.versions.toml android-app/app/build.gradle.kts
@@ -68,7 +68,7 @@ git commit -m "Add material-icons-core dependency for the Deep theme's icon butt
 **Interfaces:**
 - Produces: `SurfaceBase`, `SurfaceRaised`, `SurfaceComposer`, `BorderComposer`, `Accent`, `AccentMuted`, `TextPrimary`, `TextMuted` (all `androidx.compose.ui.graphics.Color`) — consumed by Task 3 (`Theme.kt`) and Task 4 (`AskGeminiScreen.kt`).
 
-- [ ] **Step 1: Create the color token file**
+- [x] **Step 1: Create the color token file**
 
 ```kotlin
 package com.ameyapb.androidexp.ui.theme
@@ -85,12 +85,12 @@ val TextPrimary = Color(0xFFE7EEF5)
 val TextMuted = Color(0xFF6E8398)
 ```
 
-- [ ] **Step 2: Verify the project still builds**
+- [x] **Step 2: Verify the project still builds**
 
 Run: `cd android-app && ./gradlew build`
 Expected: `BUILD SUCCESSFUL`
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add android-app/app/src/main/java/com/ameyapb/androidexp/ui/theme/Color.kt
@@ -109,7 +109,7 @@ git commit -m "Add Deep theme color tokens"
 - Consumes: `SurfaceBase`, `SurfaceRaised`, `TextPrimary`, `Accent` from Task 2's `Color.kt`.
 - Produces: `@Composable fun GeminiAppTheme(content: @Composable () -> Unit)` — consumed by `MainActivity` in this task, and available to any future screen.
 
-- [ ] **Step 1: Create the theme file**
+- [x] **Step 1: Create the theme file**
 
 ```kotlin
 package com.ameyapb.androidexp.ui.theme
@@ -138,7 +138,7 @@ fun GeminiAppTheme(content: @Composable () -> Unit) {
 
 This is a fixed dark scheme (no `isSystemInDarkTheme()` branching, no dynamic color) — the app is single-user and the Deep direction is inherently dark, per the design spec's YAGNI call on light-mode theming. Roles not listed here (`error`, `secondary`, `outline`, etc.) fall back to Material3's baseline dark-theme defaults; `AskGeminiScreen` reaches directly into `Color.kt` tokens (`SurfaceComposer`, `BorderComposer`, `AccentMuted`, `TextMuted`) wherever it needs a color outside these roles, rather than overloading the `ColorScheme` with roles that don't map cleanly onto Material3's semantics.
 
-- [ ] **Step 2: Wrap the screen content in MainActivity**
+- [x] **Step 2: Wrap the screen content in MainActivity**
 
 In `android-app/app/src/main/java/com/ameyapb/androidexp/MainActivity.kt`, add the import:
 
@@ -164,12 +164,12 @@ with:
         }
 ```
 
-- [ ] **Step 3: Verify build and run the existing test suite**
+- [x] **Step 3: Verify build and run the existing test suite**
 
 Run: `cd android-app && ./gradlew build testDebugUnitTest`
 Expected: `BUILD SUCCESSFUL`, all existing tests pass unchanged (`MainActivity` has no direct tests; this confirms the wrap didn't break anything else).
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add android-app/app/src/main/java/com/ameyapb/androidexp/ui/theme/Theme.kt android-app/app/src/main/java/com/ameyapb/androidexp/MainActivity.kt
@@ -189,7 +189,7 @@ git commit -m "Add GeminiAppTheme and apply it in MainActivity"
 
 The mockup's timestamp eyebrow label ("Today, 9:41 AM") is intentionally omitted: `AskGeminiUiState` has no timestamp field, and adding one is out of scope per the design spec (no new state fields in this plan).
 
-- [ ] **Step 1: Replace the file contents**
+- [x] **Step 1: Replace the file contents**
 
 ```kotlin
 package com.ameyapb.androidexp.ui.askgemini
@@ -410,12 +410,12 @@ fun AskGeminiScreen(viewModel: AskGeminiViewModel = hiltViewModel()) {
 
 Note what changed from the pre-plan version: the two full-width `Button`s (Send / Speak, with their text-swap loading states) are replaced by `FilledIconButton`/`OutlinedIconButton` with real icons; the loading/listening states now drive `enabled` and `contentDescription` instead of visible label text, so `SEND_BUTTON_LABEL`, `SEND_BUTTON_LOADING_LABEL`, `SPEAK_BUTTON_LABEL`, and `SPEAK_BUTTON_LISTENING_LABEL` are removed (dead code — nothing references them anymore). The voice-confirm `AlertDialog` is untouched structurally; it now inherits the Deep palette automatically through `MaterialTheme`'s default `AlertDialog` colors (`GeminiAppTheme`'s `surface`/`onSurface`/`background` roles), so no separate dialog styling is needed.
 
-- [ ] **Step 2: Run the full verification suite**
+- [x] **Step 2: Run the full verification suite**
 
 Run: `cd android-app && ./gradlew build lint testDebugUnitTest`
 Expected: `BUILD SUCCESSFUL`, zero lint issues, all existing tests pass unchanged. This confirms the restructure compiles cleanly and didn't alter any tested behavior (`AskGeminiViewModelTest` and the repository/client/notifier tests don't touch Compose UI, so they must pass exactly as before).
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add android-app/app/src/main/java/com/ameyapb/androidexp/ui/askgemini/AskGeminiScreen.kt
@@ -429,7 +429,7 @@ git commit -m "Restructure AskGeminiScreen to the Deep theme layout"
 **Files:**
 - Modify: `CLAUDE.md`
 
-- [ ] **Step 1: Install and visually verify on the physical device**
+- [x] **Step 1: Install and visually verify on the physical device**
 
 Run: `cd android-app && ./gradlew installDebug`
 
@@ -442,7 +442,7 @@ On the device, open the app and confirm, against the approved "Deep" mockup from
 
 If anything looks visually wrong (wrong color, misaligned icon, overlapping text), fix it in `AskGeminiScreen.kt` or `Theme.kt`/`Color.kt` before proceeding, then re-run `./gradlew installDebug` and re-check.
 
-- [ ] **Step 2: Update CLAUDE.md's native app architecture section**
+- [x] **Step 2: Update CLAUDE.md's native app architecture section**
 
 In `CLAUDE.md`, in the "### Native Android app (`android-app/`)" section, add a new bullet after the existing `data/voice/` bullet documenting the new theme package:
 
@@ -450,7 +450,7 @@ In `CLAUDE.md`, in the "### Native Android app (`android-app/`)" section, add a 
 - `ui/theme/`: `Color.kt` (named color tokens: `SurfaceBase`, `SurfaceRaised`, `SurfaceComposer`, `BorderComposer`, `Accent`, `AccentMuted`, `TextPrimary`, `TextMuted`) and `Theme.kt` (`GeminiAppTheme`, wrapping a fixed dark `ColorScheme` — no light-mode or dynamic/Material You theming, since the app is single-user and the chosen "Deep" visual direction is inherently dark). Applied in `MainActivity` around `AskGeminiScreen`. `AskGeminiScreen` was restructured to match: a `TopAppBar` (title plus an overflow icon button that is currently a visual anchor only, not wired to a menu yet) over a rounded-top-corner `Surface` for body content, and `FilledIconButton`/`OutlinedIconButton` (`material-icons-core` dependency) for send/mic instead of full-width text buttons, with loading/listening state now expressed via `enabled`/`contentDescription` rather than button-label text swaps. Chosen via `superpowers:brainstorming`'s visual companion; design spec: `docs/superpowers/specs/2026-09-15-basic-ux-polish-design.md`.
 ```
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add CLAUDE.md
