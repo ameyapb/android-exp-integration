@@ -21,7 +21,7 @@ Scope (all delivered):
 - Unit tests for the ViewModel and the Gemini repository (fakes over mocks), plus the Gemini SDK wrapper and the notifier (Mockito-kotlin and Robolectric respectively, added in the post-implementation audit above for the two classes that wrap boundaries fakes can't reach), plus a GitHub Actions workflow (`.github/workflows/android-ci.yml`) running build/lint/test on push.
 - No voice input, no `NotificationListenerService`, no `AccessibilityService`, no background/foreground service, no automations. Those are explicitly out of scope until later phases.
 
-## Phase 2: Voice input (in progress)
+## Phase 2: Voice input (built and verified on-device)
 
 Goal: reach feature parity with `ask-gemini.js --voice` inside the native app. This is the next milestone now that Phase 1 is built, chosen first among the deferred capabilities because it's already proven in the script and is the fastest path to full parity.
 
@@ -31,7 +31,9 @@ Design spec: `docs/superpowers/specs/2026-09-15-phase2-voice-input-design.md`. S
 
 **2b implementation note:** Robolectric's `ShadowTextToSpeech` never dispatches `onInit` on its own — the real `TextToSpeech` constructor's engine-connection logic (which would normally call it) is replaced entirely by the shadow's `initTts()`, which just returns `SUCCESS` without invoking the listener. Tests must call `shadowOf(ShadowTextToSpeech.getLastTextToSpeechInstance()).onInitListener.onInit(...)` manually to simulate init completing, confirmed by a real failing test (`lastSpokenText` stayed `null`) before this was added.
 
-This phase now reaches full parity with `ask-gemini.js --voice`. Still explicitly out of scope for all of Phase 2: `NotificationListenerService`, `AccessibilityService`, background/foreground service, automations.
+**On-device verification (2026-09-15):** installed via `./gradlew installDebug` onto the physical device over USB (`adb devices` showed it authorized), launched cleanly with no crash (`adb logcat` showed no `FATAL`/`AndroidRuntime` entries around startup), and the user confirmed the full voice flow works end to end on-device: mic capture, the confirm dialog, sending the confirmed transcript to Gemini, and hearing the reply spoken aloud via `GeminiSpeaker`.
+
+This phase now reaches full parity with `ask-gemini.js --voice`, verified both in unit tests and on the physical device. Still explicitly out of scope for all of Phase 2: `NotificationListenerService`, `AccessibilityService`, background/foreground service, automations.
 
 ## Phase 3: Background & always-on operation
 
