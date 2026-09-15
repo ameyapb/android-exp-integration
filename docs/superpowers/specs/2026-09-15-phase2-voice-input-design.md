@@ -215,6 +215,21 @@ callback needs `shadowOf(Looper.getMainLooper()).idle()` after
 `UnExecutedRunnablesException` hint in a real 2a test failure before
 this was added.
 
+**2b implementation note (2026-09-15):** `ShadowTextToSpeech` does not
+automatically call `onInit` the way `SpeechRecognizer`'s shadow calls
+its listener — the real `TextToSpeech` constructor's engine-connection
+logic (which would eventually call `dispatchOnInit`) is replaced
+entirely by the shadow's `initTts()`, which just returns `SUCCESS`
+without ever invoking the listener (confirmed by decompiling both
+classes after a real test failed with `lastSpokenText` staying `null`).
+`GeminiSpeakerImplTest` instead calls
+`shadowOf(ShadowTextToSpeech.getLastTextToSpeechInstance()).onInitListener.onInit(...)`
+directly to simulate init completing or failing. No `VoiceConstants.kt`
+was introduced in 2b either — `GeminiSpeakerImpl`'s two literals
+(`LOG_TAG`, `TTS_UTTERANCE_ID`) are private consts in that file, same
+as 2a's `VoiceRecognizerImpl`, since nothing is actually shared between
+the two wrappers.
+
 ## Documentation updates required
 
 Tracked here for the implementation plan; not performed as part of
