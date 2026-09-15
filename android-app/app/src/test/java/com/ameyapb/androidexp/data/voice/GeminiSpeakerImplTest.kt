@@ -5,6 +5,7 @@ import android.speech.tts.TextToSpeech
 import com.ameyapb.androidexp.ROBOLECTRIC_SDK_LEVEL
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -51,5 +52,14 @@ class GeminiSpeakerImplTest {
         speaker.speak("because of Rayleigh scattering")
 
         assertNull(shadowTextToSpeech.lastSpokenText)
+    }
+
+    @Test
+    fun `shutdown stops and releases the underlying engine`() {
+        shadowTextToSpeech.onInitListener.onInit(TextToSpeech.SUCCESS)
+
+        speaker.shutdown()
+
+        assertTrue(shadowTextToSpeech.isShutdown)
     }
 }

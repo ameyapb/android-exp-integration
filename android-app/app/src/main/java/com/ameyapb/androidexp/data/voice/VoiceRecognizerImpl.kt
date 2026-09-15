@@ -9,6 +9,7 @@ import android.speech.SpeechRecognizer
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import kotlin.coroutines.resume
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.suspendCancellableCoroutine
 
 private const val VOICE_RECOGNITION_UNAVAILABLE_MESSAGE =
@@ -24,41 +25,47 @@ class VoiceRecognizerImpl @Inject constructor(
             return Result.failure(Exception(VOICE_RECOGNITION_UNAVAILABLE_MESSAGE))
         }
 
-        return suspendCancellableCoroutine { continuation ->
-            val recognizer = SpeechRecognizer.createSpeechRecognizer(context)
+        return try {
+            suspendCancellableCoroutine { continuation ->
+                val recognizer = SpeechRecognizer.createSpeechRecognizer(context)
 
-            recognizer.setRecognitionListener(object : RecognitionListener {
-                override fun onResults(results: Bundle) {
-                    val transcript = results
-                        .getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
-                        ?.firstOrNull()
-                        .orEmpty()
-                    recognizer.destroy()
-                    if (continuation.isActive) continuation.resume(Result.success(transcript))
-                }
-
-                override fun onError(error: Int) {
-                    recognizer.destroy()
-                    if (continuation.isActive) {
-                        continuation.resume(Result.failure(Exception(describeVoiceRecognitionError(error))))
+                recognizer.setRecognitionListener(object : RecognitionListener {
+                    override fun onResults(results: Bundle) {
+                        val transcript = results
+                            .getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
+                            ?.firstOrNull()
+                            .orEmpty()
+                        recognizer.destroy()
+                        if (continuation.isActive) continuation.resume(Result.success(transcript))
                     }
+
+                    override fun onError(error: Int) {
+                        recognizer.destroy()
+                        if (continuation.isActive) {
+                            continuation.resume(Result.failure(Exception(describeVoiceRecognitionError(error))))
+                        }
+                    }
+
+                    override fun onReadyForSpeech(params: Bundle?) = Unit
+                    override fun onBeginningOfSpeech() = Unit
+                    override fun onRmsChanged(rmsdB: Float) = Unit
+                    override fun onBufferReceived(buffer: ByteArray?) = Unit
+                    override fun onEndOfSpeech() = Unit
+                    override fun onPartialResults(partialResults: Bundle?) = Unit
+                    override fun onEvent(eventType: Int, params: Bundle?) = Unit
+                })
+
+                continuation.invokeOnCancellation {
+                    recognizer.stopListening()
+                    recognizer.destroy()
                 }
 
-                override fun onReadyForSpeech(params: Bundle?) = Unit
-                override fun onBeginningOfSpeech() = Unit
-                override fun onRmsChanged(rmsdB: Float) = Unit
-                override fun onBufferReceived(buffer: ByteArray?) = Unit
-                override fun onEndOfSpeech() = Unit
-                override fun onPartialResults(partialResults: Bundle?) = Unit
-                override fun onEvent(eventType: Int, params: Bundle?) = Unit
-            })
-
-            continuation.invokeOnCancellation {
-                recognizer.stopListening()
-                recognizer.destroy()
+                recognizer.startListening(buildRecognizerIntent())
             }
-
-            recognizer.startListening(buildRecognizerIntent())
+        } catch (exception: CancellationException) {
+            throw exception
+        } catch (exception: Exception) {
+            Result.failure(exception)
         }
     }
 }

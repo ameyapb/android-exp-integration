@@ -1,7 +1,6 @@
 package com.ameyapb.androidexp.ui.askgemini
 
 import android.Manifest
-import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
@@ -24,10 +23,17 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.ameyapb.androidexp.util.isPermissionGranted
 
+private const val PROMPT_FIELD_LABEL = "Ask Gemini"
+private const val SEND_BUTTON_LABEL = "Send"
+private const val SEND_BUTTON_LOADING_LABEL = "Sending..."
+private const val SPEAK_BUTTON_LABEL = "Speak"
+private const val SPEAK_BUTTON_LISTENING_LABEL = "Listening..."
 private const val VOICE_CONFIRM_DIALOG_TITLE = "Confirm prompt"
+private const val VOICE_CONFIRM_SEND_LABEL = "Send"
+private const val VOICE_CONFIRM_DISCARD_LABEL = "Discard"
 private const val VOICE_TRANSCRIPT_DIALOG_MAX_HEIGHT_DP = 240
 
 @Composable
@@ -37,7 +43,9 @@ fun AskGeminiScreen(viewModel: AskGeminiViewModel = hiltViewModel()) {
 
     val microphonePermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission(),
-    ) { granted -> if (granted) viewModel.onMicClicked() }
+    ) { granted ->
+        if (granted) viewModel.onMicClicked() else viewModel.onMicPermissionDenied()
+    }
 
     Scaffold { innerPadding ->
         Column(
@@ -51,32 +59,27 @@ fun AskGeminiScreen(viewModel: AskGeminiViewModel = hiltViewModel()) {
                 value = uiState.promptText,
                 onValueChange = viewModel::onPromptTextChanged,
                 modifier = Modifier.fillMaxWidth(),
-                label = { Text("Ask Gemini") },
+                label = { Text(PROMPT_FIELD_LABEL) },
             )
 
             Button(
                 onClick = viewModel::onSendClicked,
-                enabled = !uiState.isLoading && uiState.promptText.isNotBlank(),
+                enabled = !uiState.isLoading && !uiState.isListening && uiState.promptText.isNotBlank(),
             ) {
-                Text(if (uiState.isLoading) "Sending..." else "Send")
+                Text(if (uiState.isLoading) SEND_BUTTON_LOADING_LABEL else SEND_BUTTON_LABEL)
             }
 
             Button(
                 onClick = {
-                    val alreadyGranted = ContextCompat.checkSelfPermission(
-                        context,
-                        Manifest.permission.RECORD_AUDIO,
-                    ) == PackageManager.PERMISSION_GRANTED
-
-                    if (alreadyGranted) {
+                    if (isPermissionGranted(context, Manifest.permission.RECORD_AUDIO)) {
                         viewModel.onMicClicked()
                     } else {
                         microphonePermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
                     }
                 },
-                enabled = !uiState.isListening,
+                enabled = !uiState.isListening && !uiState.isLoading,
             ) {
-                Text(if (uiState.isListening) "Listening..." else "Speak")
+                Text(if (uiState.isListening) SPEAK_BUTTON_LISTENING_LABEL else SPEAK_BUTTON_LABEL)
             }
 
             val errorMessage = uiState.errorMessage
@@ -102,10 +105,10 @@ fun AskGeminiScreen(viewModel: AskGeminiViewModel = hiltViewModel()) {
                 )
             },
             confirmButton = {
-                Button(onClick = viewModel::onVoiceTranscriptConfirmed) { Text("Send") }
+                Button(onClick = viewModel::onVoiceTranscriptConfirmed) { Text(VOICE_CONFIRM_SEND_LABEL) }
             },
             dismissButton = {
-                Button(onClick = viewModel::onVoiceTranscriptDiscarded) { Text("Discard") }
+                Button(onClick = viewModel::onVoiceTranscriptDiscarded) { Text(VOICE_CONFIRM_DISCARD_LABEL) }
             },
         )
     }

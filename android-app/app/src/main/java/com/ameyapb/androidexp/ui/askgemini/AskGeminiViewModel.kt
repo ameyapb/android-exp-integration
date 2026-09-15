@@ -15,6 +15,7 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 private const val HEARD_NOTHING_MESSAGE = "Heard nothing."
+private const val MIC_PERMISSION_DENIED_MESSAGE = "Microphone permission is required for voice input."
 
 @HiltViewModel
 class AskGeminiViewModel @Inject constructor(
@@ -27,21 +28,34 @@ class AskGeminiViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(AskGeminiUiState())
     val uiState: StateFlow<AskGeminiUiState> = _uiState.asStateFlow()
 
+    init {
+        addCloseable(geminiSpeaker::shutdown)
+    }
+
     fun onPromptTextChanged(text: String) {
         _uiState.update { it.copy(promptText = text) }
     }
 
     fun onSendClicked() {
-        val prompt = _uiState.value.promptText
-        if (prompt.isBlank()) {
+        val state = _uiState.value
+        if (state.promptText.isBlank() || state.isLoading || state.isListening) {
             return
         }
 
         _uiState.update { it.copy(isLoading = true, errorMessage = null) }
-        viewModelScope.launch { sendPromptAndHandleResult(prompt, speakReplyAloud = false) }
+        viewModelScope.launch { sendPromptAndHandleResult(state.promptText, speakReplyAloud = false) }
+    }
+
+    fun onMicPermissionDenied() {
+        _uiState.update { it.copy(errorMessage = MIC_PERMISSION_DENIED_MESSAGE) }
     }
 
     fun onMicClicked() {
+        val state = _uiState.value
+        if (state.isListening || state.isLoading) {
+            return
+        }
+
         _uiState.update { it.copy(isListening = true, errorMessage = null) }
 
         viewModelScope.launch {

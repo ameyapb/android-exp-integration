@@ -1,14 +1,13 @@
 package com.ameyapb.androidexp
 
 import android.Manifest
-import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.core.content.ContextCompat
 import com.ameyapb.androidexp.ui.askgemini.AskGeminiScreen
+import com.ameyapb.androidexp.util.isPermissionGranted
 import dagger.hilt.android.AndroidEntryPoint
 
 @AndroidEntryPoint
@@ -31,10 +30,7 @@ class MainActivity : ComponentActivity() {
             return
         }
 
-        val alreadyGranted = ContextCompat.checkSelfPermission(
-            this,
-            Manifest.permission.POST_NOTIFICATIONS,
-        ) == PackageManager.PERMISSION_GRANTED
+        val alreadyGranted = isPermissionGranted(this, Manifest.permission.POST_NOTIFICATIONS)
 
         if (!alreadyGranted) {
             requestNotificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)

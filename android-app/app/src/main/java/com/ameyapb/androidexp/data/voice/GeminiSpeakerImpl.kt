@@ -30,4 +30,9 @@ class GeminiSpeakerImpl @Inject constructor(
         }
         textToSpeech.speak(text, TextToSpeech.QUEUE_FLUSH, null, TTS_UTTERANCE_ID)
     }
+
+    override fun shutdown() {
+        textToSpeech.stop()
+        textToSpeech.shutdown()
+    }
 }

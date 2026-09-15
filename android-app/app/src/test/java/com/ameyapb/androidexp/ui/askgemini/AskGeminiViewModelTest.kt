@@ -159,4 +159,40 @@ class AskGeminiViewModelTest {
         assertEquals("", state.replyText)
         assertTrue(fakeGeminiNotifier.notifiedReplies.isEmpty())
     }
+
+    @Test
+    fun `onMicPermissionDenied sets an error message`() {
+        viewModel.onMicPermissionDenied()
+
+        assertEquals(
+            "Microphone permission is required for voice input.",
+            viewModel.uiState.value.errorMessage,
+        )
+    }
+
+    @Test
+    fun `onSendClicked is ignored while a voice capture is in progress`() = runTest {
+        viewModel.onPromptTextChanged("why is the sky blue")
+        viewModel.onMicClicked()
+        assertTrue(viewModel.uiState.value.isListening)
+
+        viewModel.onSendClicked()
+
+        assertTrue(!viewModel.uiState.value.isLoading)
+        testDispatcher.scheduler.advanceUntilIdle()
+        assertTrue(fakeGeminiNotifier.notifiedReplies.isEmpty())
+    }
+
+    @Test
+    fun `onMicClicked is ignored while a send is in progress`() = runTest {
+        viewModel.onPromptTextChanged("why is the sky blue")
+        viewModel.onSendClicked()
+        assertTrue(viewModel.uiState.value.isLoading)
+
+        viewModel.onMicClicked()
+
+        assertTrue(!viewModel.uiState.value.isListening)
+        testDispatcher.scheduler.advanceUntilIdle()
+        assertNull(viewModel.uiState.value.pendingVoiceTranscript)
+    }
 }
