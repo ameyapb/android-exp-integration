@@ -198,6 +198,23 @@ per `CLAUDE.md`'s per-session ceiling):
   tests for both new wrapper classes plus the expanded
   `AskGeminiViewModelTest` coverage listed under Testing above.
 
+**2a implementation note (2026-09-15):** no separate `VoiceConstants.kt`
+file was created. `VoiceRecognizerImpl`'s one literal
+(`VOICE_RECOGNITION_UNAVAILABLE_MESSAGE`) is a private const directly in
+that file, matching how `GeminiRepositoryImpl` keeps its own private
+constants rather than pulling in a shared-constants file for a single
+consumer — per YAGNI, nothing is actually shared between
+`VoiceRecognizer` and `GeminiSpeaker` yet. 2b should follow the same
+rule: only introduce `VoiceConstants.kt` if a literal turns out to be
+genuinely shared between the two wrappers, not just co-located by
+topic. Also, Robolectric's `SpeechRecognizer` shadow dispatches
+listener registration through the main-thread `Handler`, so any
+Robolectric test that triggers a `RecognitionListener`/`TextToSpeech`
+callback needs `shadowOf(Looper.getMainLooper()).idle()` after
+`runCurrent()` and before triggering the callback — confirmed by an
+`UnExecutedRunnablesException` hint in a real 2a test failure before
+this was added.
+
 ## Documentation updates required
 
 Tracked here for the implementation plan; not performed as part of

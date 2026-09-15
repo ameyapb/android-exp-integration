@@ -21,16 +21,17 @@ Scope (all delivered):
 - Unit tests for the ViewModel and the Gemini repository (fakes over mocks), plus the Gemini SDK wrapper and the notifier (Mockito-kotlin and Robolectric respectively, added in the post-implementation audit above for the two classes that wrap boundaries fakes can't reach), plus a GitHub Actions workflow (`.github/workflows/android-ci.yml`) running build/lint/test on push.
 - No voice input, no `NotificationListenerService`, no `AccessibilityService`, no background/foreground service, no automations. Those are explicitly out of scope until later phases.
 
-## Phase 2: Voice input (next target)
+## Phase 2: Voice input (in progress)
 
 Goal: reach feature parity with `ask-gemini.js --voice` inside the native app. This is the next milestone now that Phase 1 is built, chosen first among the deferred capabilities because it's already proven in the script and is the fastest path to full parity.
 
-Scope:
-- Voice capture via Android's `SpeechRecognizer` API, replacing the script's `termux-speech-to-text` shell-out.
-- In-app confirmation UI (an `AlertDialog` or Compose dialog showing the full transcript, scrollable, with confirm/discard actions) replacing the script's `termux-dialog`-based confirm step. Same intent as the script's flow: show the transcript, let the user accept or discard it unchanged before it's sent.
-- Spoken replies via Android's `TextToSpeech` API, replacing `termux-tts-speak`.
-- Reuses the Phase 1 repository/ViewModel layer for the actual Gemini call — voice is a new input/output surface on top of the same data layer, not a parallel path.
-- Still explicitly out of scope: `NotificationListenerService`, `AccessibilityService`, background/foreground service, automations.
+Design spec: `docs/superpowers/specs/2026-09-15-phase2-voice-input-design.md`. Split into two implementation sub-phases per `CLAUDE.md`'s per-session file-count ceiling; sub-phase 2a's plan is `docs/superpowers/plans/2026-09-15-phase2a-voice-capture.md`.
+
+**Status (2026-09-15): sub-phase 2a implemented and committed to `main`.** Voice capture (`data/voice/VoiceRecognizer`/`VoiceRecognizerImpl`, wrapping `android.speech.SpeechRecognizer`), the mic button with on-demand `RECORD_AUDIO` permission request, and the in-app confirm/discard `AlertDialog` are all built and covered by tests (`VoiceRecognizerImplTest` under Robolectric, expanded `AskGeminiViewModelTest`). A confirmed voice transcript already sends through the existing Gemini path and shows/notifies the reply exactly like a typed prompt. `./gradlew build lint testDebugUnitTest` passes.
+
+**Remaining for sub-phase 2b (not yet built):** spoken replies. This needs a new `data/voice/GeminiSpeaker`/`GeminiSpeakerImpl` pair wrapping `android.speech.tts.TextToSpeech` (mirroring the `VoiceRecognizer` wrapper), a Hilt binding for it in `AppModule`, wiring a `speakReplyAloud: Boolean` parameter into `AskGeminiViewModel`'s shared `sendPromptAndHandleResult` function so only voice-confirmed replies (not typed ones) call `geminiSpeaker.speak(replyText)`, and Robolectric tests for `GeminiSpeakerImpl` plus the new ViewModel cases (typed send never speaks; voice-confirmed send does). Full detail is in the design spec's Architecture/Data flow/Testing sections and the "2b" bullet under "Implementation phasing" — no separate `VoiceConstants.kt` file was created in 2a (see the spec's Implementation phasing note), so 2b's plan should either add recognizer/TTS-shared constants directly where needed or introduce that file only if something is actually shared between the two wrappers.
+
+Once 2b lands, this phase reaches full parity with `ask-gemini.js --voice`. Still explicitly out of scope for all of Phase 2: `NotificationListenerService`, `AccessibilityService`, background/foreground service, automations.
 
 ## Phase 3: Background & always-on operation
 
