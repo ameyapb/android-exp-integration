@@ -7,6 +7,8 @@ import com.ameyapb.androidexp.data.gemini.GeminiRepository
 import com.ameyapb.androidexp.data.gemini.GeminiRepositoryImpl
 import com.ameyapb.androidexp.data.notification.GeminiNotifier
 import com.ameyapb.androidexp.data.notification.GeminiNotifierImpl
+import com.ameyapb.androidexp.data.voice.VoiceRecognizer
+import com.ameyapb.androidexp.data.voice.VoiceRecognizerImpl
 import dagger.Binds
 import dagger.Module
 import dagger.Provides
@@ -34,6 +36,10 @@ abstract class AppModule {
     @Binds
     @Singleton
     abstract fun bindGeminiNotifier(impl: GeminiNotifierImpl): GeminiNotifier
+
+    @Binds
+    @Singleton
+    abstract fun bindVoiceRecognizer(impl: VoiceRecognizerImpl): VoiceRecognizer
 
     companion object {
         @Provides

@@ -18,6 +18,7 @@ class AskGeminiViewModelTest {
     private val testDispatcher = StandardTestDispatcher()
     private lateinit var fakeGeminiRepository: FakeGeminiRepository
     private lateinit var fakeGeminiNotifier: FakeGeminiNotifier
+    private lateinit var fakeVoiceRecognizer: FakeVoiceRecognizer
     private lateinit var viewModel: AskGeminiViewModel
 
     @Before
@@ -25,7 +26,8 @@ class AskGeminiViewModelTest {
         Dispatchers.setMain(testDispatcher)
         fakeGeminiRepository = FakeGeminiRepository()
         fakeGeminiNotifier = FakeGeminiNotifier()
-        viewModel = AskGeminiViewModel(fakeGeminiRepository, fakeGeminiNotifier)
+        fakeVoiceRecognizer = FakeVoiceRecognizer()
+        viewModel = AskGeminiViewModel(fakeGeminiRepository, fakeGeminiNotifier, fakeVoiceRecognizer)
     }
 
     @After
@@ -77,6 +79,75 @@ class AskGeminiViewModelTest {
         testDispatcher.scheduler.advanceUntilIdle()
 
         assertTrue(!viewModel.uiState.value.isLoading)
+        assertTrue(fakeGeminiNotifier.notifiedReplies.isEmpty())
+    }
+
+    @Test
+    fun `onMicClicked with a non-blank transcript sets pendingVoiceTranscript`() = runTest {
+        fakeVoiceRecognizer.result = Result.success("why is the sky blue")
+
+        viewModel.onMicClicked()
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertEquals("why is the sky blue", state.pendingVoiceTranscript)
+        assertTrue(!state.isListening)
+    }
+
+    @Test
+    fun `onMicClicked with a blank transcript sets an error and no pending transcript`() = runTest {
+        fakeVoiceRecognizer.result = Result.success("   ")
+
+        viewModel.onMicClicked()
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertNull(state.pendingVoiceTranscript)
+        assertEquals("Heard nothing.", state.errorMessage)
+        assertTrue(!state.isListening)
+    }
+
+    @Test
+    fun `onMicClicked on recognition failure sets the error message`() = runTest {
+        fakeVoiceRecognizer.result = Result.failure(Exception("Voice input error: didn't catch any speech."))
+
+        viewModel.onMicClicked()
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertEquals("Voice input error: didn't catch any speech.", state.errorMessage)
+        assertNull(state.pendingVoiceTranscript)
+        assertTrue(!state.isListening)
+    }
+
+    @Test
+    fun `onVoiceTranscriptConfirmed sends the transcript and notifies on success`() = runTest {
+        fakeVoiceRecognizer.result = Result.success("why is the sky blue")
+        fakeGeminiRepository.result = Result.success("because of Rayleigh scattering")
+        viewModel.onMicClicked()
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        viewModel.onVoiceTranscriptConfirmed()
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertNull(state.pendingVoiceTranscript)
+        assertEquals("because of Rayleigh scattering", state.replyText)
+        assertEquals(listOf("because of Rayleigh scattering"), fakeGeminiNotifier.notifiedReplies)
+    }
+
+    @Test
+    fun `onVoiceTranscriptDiscarded clears the pending transcript without sending`() = runTest {
+        fakeVoiceRecognizer.result = Result.success("why is the sky blue")
+        viewModel.onMicClicked()
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        viewModel.onVoiceTranscriptDiscarded()
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertNull(state.pendingVoiceTranscript)
+        assertEquals("", state.replyText)
         assertTrue(fakeGeminiNotifier.notifiedReplies.isEmpty())
     }
 }

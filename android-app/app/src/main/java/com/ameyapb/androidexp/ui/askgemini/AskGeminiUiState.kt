@@ -5,4 +5,6 @@ data class AskGeminiUiState(
     val replyText: String = "",
     val isLoading: Boolean = false,
     val errorMessage: String? = null,
+    val isListening: Boolean = false,
+    val pendingVoiceTranscript: String? = null,
 )
