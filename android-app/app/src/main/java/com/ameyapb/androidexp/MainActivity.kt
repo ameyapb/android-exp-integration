@@ -7,6 +7,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import com.ameyapb.androidexp.ui.askgemini.AskGeminiScreen
+import com.ameyapb.androidexp.ui.theme.GeminiAppTheme
 import com.ameyapb.androidexp.util.isPermissionGranted
 import dagger.hilt.android.AndroidEntryPoint
 
@@ -21,7 +22,9 @@ class MainActivity : ComponentActivity() {
         requestNotificationPermissionIfNeeded()
 
         setContent {
-            AskGeminiScreen()
+            GeminiAppTheme {
+                AskGeminiScreen()
+            }
         }
     }
 
