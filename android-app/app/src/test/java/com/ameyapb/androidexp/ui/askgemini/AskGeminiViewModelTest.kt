@@ -19,6 +19,7 @@ class AskGeminiViewModelTest {
     private lateinit var fakeGeminiRepository: FakeGeminiRepository
     private lateinit var fakeGeminiNotifier: FakeGeminiNotifier
     private lateinit var fakeVoiceRecognizer: FakeVoiceRecognizer
+    private lateinit var fakeGeminiSpeaker: FakeGeminiSpeaker
     private lateinit var viewModel: AskGeminiViewModel
 
     @Before
@@ -27,7 +28,13 @@ class AskGeminiViewModelTest {
         fakeGeminiRepository = FakeGeminiRepository()
         fakeGeminiNotifier = FakeGeminiNotifier()
         fakeVoiceRecognizer = FakeVoiceRecognizer()
-        viewModel = AskGeminiViewModel(fakeGeminiRepository, fakeGeminiNotifier, fakeVoiceRecognizer)
+        fakeGeminiSpeaker = FakeGeminiSpeaker()
+        viewModel = AskGeminiViewModel(
+            fakeGeminiRepository,
+            fakeGeminiNotifier,
+            fakeVoiceRecognizer,
+            fakeGeminiSpeaker,
+        )
     }
 
     @After
@@ -55,6 +62,7 @@ class AskGeminiViewModelTest {
         assertTrue(!state.isLoading)
         assertNull(state.errorMessage)
         assertEquals(listOf("because of Rayleigh scattering"), fakeGeminiNotifier.notifiedReplies)
+        assertTrue(fakeGeminiSpeaker.spokenReplies.isEmpty())
     }
 
     @Test
@@ -134,6 +142,7 @@ class AskGeminiViewModelTest {
         assertNull(state.pendingVoiceTranscript)
         assertEquals("because of Rayleigh scattering", state.replyText)
         assertEquals(listOf("because of Rayleigh scattering"), fakeGeminiNotifier.notifiedReplies)
+        assertEquals(listOf("because of Rayleigh scattering"), fakeGeminiSpeaker.spokenReplies)
     }
 
     @Test

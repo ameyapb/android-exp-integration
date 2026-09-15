@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.ameyapb.androidexp.data.gemini.GeminiRepository
 import com.ameyapb.androidexp.data.notification.GeminiNotifier
+import com.ameyapb.androidexp.data.voice.GeminiSpeaker
 import com.ameyapb.androidexp.data.voice.VoiceRecognizer
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -20,6 +21,7 @@ class AskGeminiViewModel @Inject constructor(
     private val geminiRepository: GeminiRepository,
     private val geminiNotifier: GeminiNotifier,
     private val voiceRecognizer: VoiceRecognizer,
+    private val geminiSpeaker: GeminiSpeaker,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(AskGeminiUiState())
@@ -36,7 +38,7 @@ class AskGeminiViewModel @Inject constructor(
         }
 
         _uiState.update { it.copy(isLoading = true, errorMessage = null) }
-        viewModelScope.launch { sendPromptAndHandleResult(prompt) }
+        viewModelScope.launch { sendPromptAndHandleResult(prompt, speakReplyAloud = false) }
     }
 
     fun onMicClicked() {
@@ -61,18 +63,21 @@ class AskGeminiViewModel @Inject constructor(
     fun onVoiceTranscriptConfirmed() {
         val transcript = _uiState.value.pendingVoiceTranscript ?: return
         _uiState.update { it.copy(pendingVoiceTranscript = null, isLoading = true, errorMessage = null) }
-        viewModelScope.launch { sendPromptAndHandleResult(transcript) }
+        viewModelScope.launch { sendPromptAndHandleResult(transcript, speakReplyAloud = true) }
     }
 
     fun onVoiceTranscriptDiscarded() {
         _uiState.update { it.copy(pendingVoiceTranscript = null) }
     }
 
-    private suspend fun sendPromptAndHandleResult(prompt: String) {
+    private suspend fun sendPromptAndHandleResult(prompt: String, speakReplyAloud: Boolean) {
         geminiRepository.sendPrompt(prompt).fold(
             onSuccess = { replyText ->
                 _uiState.update { it.copy(replyText = replyText, isLoading = false) }
                 geminiNotifier.notify(replyText)
+                if (speakReplyAloud) {
+                    geminiSpeaker.speak(replyText)
+                }
             },
             onFailure = { error ->
                 _uiState.update { it.copy(errorMessage = error.message, isLoading = false) }
